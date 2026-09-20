@@ -1,0 +1,82 @@
+# configs/panda_pickplace_m2.yaml
+# Tuned for Apple M2 (8–16 GB unified memory)
+# Reduce batch_size / rssm_deter if you hit OOM
+
+env:
+  task: PickPlaceCan
+  robot: Panda
+  controller: OSC_POSE
+  camera: agentview
+  image_size: 64
+  obs_keys:
+    - robot0_eef_pos
+    - robot0_eef_quat
+    - robot0_gripper_qpos
+    - robot0_joint_pos
+    - object-state
+  reward_shaping: true
+  control_freq: 20
+  horizon: 500
+  seed: 42
+
+training:
+  total_steps: 1_000_000       # reduced for M2 (~3 days at 500 steps/sec)
+  prefill_steps: 5_000
+  train_ratio: 8               # reduced from 32 (M2 bottleneck is compute)
+  eval_every: 25_000
+  eval_episodes: 5
+  checkpoint_every: 50_000
+  log_every: 500
+  device: mps                  # "cpu" if MPS causes issues
+  seed: 42
+  mixed_precision: false       # MPS bf16 is experimental — keep false for stability
+
+replay:
+  capacity: 200_000            # 200k vs 1M (M2 has less RAM than servers)
+  batch_size: 8                # 8 vs 16 (saves ~2 GB unified memory)
+  batch_length: 32             # 32 vs 64
+  min_seq_length: 32
+
+world_model:
+  rssm_deter: 512              # 512 vs 4096 (key M2 reduction — 4096 OOMs)
+  rssm_stoch: 32
+  rssm_classes: 32
+  encoder_cnn_depth: 32        # 32 vs 48 channels
+  encoder_mlp_layers: 2
+  encoder_mlp_units: 256
+  decoder_cnn_depth: 32
+  reward_layers: 2
+  reward_units: 256
+  continue_layers: 2
+  continue_units: 256
+  kl_free: 1.0
+  kl_balance: 0.8
+  kl_scale: 1.0
+  model_lr: 1.0e-4
+  model_eps: 1.0e-8
+  model_clip: 1000.0
+
+actor_critic:
+  actor_layers: 3
+  actor_units: 256             # 256 vs 512
+  actor_dist: normal
+  actor_min_std: 0.1
+  critic_layers: 3
+  critic_units: 256
+  critic_bins: 255
+  imagination_horizon: 10      # 10 vs 15
+  discount: 0.997
+  lambda_: 0.95
+  actor_entropy: 3.0e-4
+  actor_lr: 3.0e-5
+  actor_eps: 1.0e-5
+  actor_clip: 100.0
+  critic_lr: 3.0e-5
+  critic_eps: 1.0e-5
+  critic_clip: 100.0
+
+logging:
+  log_dir: logs/
+  checkpoint_dir: checkpoints/
+  use_wandb: false
+  wandb_project: dreamerv3-panda-m2

@@ -1,0 +1,2482 @@
+%=============================================================================
+%  Learned World Models for Manipulator Trajectory Planning
+%  MSc Electronic and Robotic Engineering -- University of West London
+%
+%  SELF-CONTAINED SINGLE-FILE VERSION FOR OVERLEAF
+%  ------------------------------------------------
+%  This file compiles on its own with NO external files required.
+%
+%  HOW TO USE ON OVERLEAF
+%    1. New Project -> Upload Project (or paste this file into a blank project).
+%    2. Compiler: pdfLaTeX  (Menu -> Compiler). This is the Overleaf default.
+%    3. Press Recompile. Overleaf runs LaTeX enough times for the table of
+%       contents, list of figures and cross-references to resolve.
+%
+%  FIGURES
+%    All 35 figures are drawn as labelled placeholder boxes, because no image
+%    files are included here. Each box shows the filename it expects and keeps
+%    its numbered caption, so figure numbering and the List of Figures are
+%    already correct.
+%
+%    To insert the real figures: upload a folder named  diss_figs  containing
+%    the PNG files, then recompile. The \figbox macro detects each file and
+%    swaps the placeholder for the image automatically. No other edit needed.
+%
+%  BEFORE SUBMISSION
+%    - Title page: insert your name, student number and supervisor (see
+%      "insert name and student number" below).
+%    - Acknowledgements: complete the placeholder text.
+%    - Section 5.3.6 contains a marked placeholder for the 80,000-step
+%      evaluation console screenshot.
+%    - Check your programme's required margins (currently 3.5 cm binding
+%      edge / 2.5 cm elsewhere, A4).
+%
+%  PACKAGES USED (all present in Overleaf's TeX Live distribution)
+%    geometry setspace amsmath amssymb graphicx calc longtable booktabs array
+%    caption float fancyvrb xcolor titlesec fancyhdr hyperref cleveref
+%    lmodern microtype
+%=============================================================================
+\documentclass[12pt,a4paper,oneside]{report}
+
+%----- encoding and fonts ----------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+% lmodern gives scalable Type1 fonts. microtype's font expansion requires
+% scalable fonts, so it is only loaded when lmodern is actually available.
+\IfFileExists{lmodern.sty}{%
+  \usepackage{lmodern}%
+  \IfFileExists{microtype.sty}{\usepackage{microtype}}{}%
+}{}
+
+%----- page geometry and spacing ---------------------------------------------
+\usepackage[a4paper,left=3.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\setlength{\parskip}{0.6em}
+\setlength{\parindent}{0pt}
+
+%----- maths ------------------------------------------------------------------
+\usepackage{amsmath,amssymb,amsfonts}
+
+%----- figures, tables, listings ---------------------------------------------
+\usepackage{graphicx}
+\graphicspath{{diss_figs/}}
+\usepackage{calc}          % provides \real{} used by pandoc's column widths
+\usepackage{longtable,booktabs,array}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf,width=0.92\textwidth}
+\captionsetup[table]{skip=6pt}
+\usepackage{float}
+\usepackage{fancyvrb}
+\usepackage{xcolor}
+\definecolor{codebg}{gray}{0.96}
+\fvset{fontsize=\small,frame=single,rulecolor=\color{gray!40},
+       framesep=4pt,xleftmargin=0pt}
+
+
+%----- figure placeholder --------------------------------------------------
+% \figbox{<width fraction>}{<image path>}
+%
+% If the image file is present it is included at the given fraction of the
+% text width. If it is NOT present, a labelled placeholder box of the same
+% width is drawn instead, so the document always compiles. Upload the
+% diss_figs/ folder to Overleaf to replace every placeholder with the real
+% figure -- no other change is required.
+\newcommand{\figbox}[2]{%
+  \IfFileExists{#2}{%
+    \includegraphics[width=#1\linewidth,keepaspectratio]{#2}%
+  }{%
+    \setlength{\fboxsep}{0pt}%
+    \fcolorbox{gray!55}{gray!8}{%
+      \begin{minipage}[c][0.26\linewidth][c]%
+        {\dimexpr #1\linewidth - 2\fboxrule\relax}
+        \centering
+        {\sffamily\bfseries\small FIGURE PLACEHOLDER}\\[5pt]
+        {\ttfamily\footnotesize \detokenize{#2}}\\[5pt]
+        {\sffamily\scriptsize see caption below}
+      \end{minipage}%
+    }%
+  }%
+}
+
+%----- pandoc compatibility ---------------------------------------------------
+% pandoc emits \tightlist and may emit \passthrough / \pandocbounded
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\providecommand{\passthrough}[1]{#1}
+\providecommand{\pandocbounded}[1]{#1}
+
+%----- headings ---------------------------------------------------------------
+\usepackage{titlesec}
+\titleformat{\section}{\Large\bfseries}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.7em}{}
+\titlespacing*{\section}{0pt}{2.4ex plus 1ex minus .2ex}{1.4ex plus .2ex}
+
+%----- headers and footers ----------------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\small\nouppercase{\leftmark}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+%----- hyperlinks (load last) -------------------------------------------------
+\usepackage[hidelinks,breaklinks=true]{hyperref}
+\hypersetup{
+  pdftitle={Learned World Models for Manipulator Trajectory Planning},
+  pdfsubject={MSc Dissertation, Electronic and Robotic Engineering},
+  pdfkeywords={model-based reinforcement learning, world models,
+               trajectory planning, robotic manipulation, DreamerV3, Robosuite},
+  bookmarksnumbered=true
+}
+\usepackage[nameinlink]{cleveref}
+
+%=============================================================================
+\begin{document}
+
+%----- TITLE PAGE -------------------------------------------------------------
+\begin{titlepage}
+\centering
+\vspace*{0.6cm}
+
+{\Large\scshape University of West London\par}
+\vspace{0.4cm}
+{\large School of Computing and Engineering\par}
+
+\vspace{1.9cm}
+\rule{\textwidth}{0.6pt}\par
+\vspace{0.9cm}
+{\Huge\bfseries Learned World Models for\\[0.35em]
+ Manipulator Trajectory Planning\par}
+\vspace{0.9cm}
+{\Large A Diagnostic Study of DreamerV3 on a\\[0.2em]
+ Franka Emika Panda\par}
+\vspace{0.9cm}
+\rule{\textwidth}{0.6pt}\par
+
+\vspace{1.7cm}
+{\large
+A dissertation submitted in partial fulfilment\\
+of the requirements for the degree of\\[0.6em]
+\textbf{MSc Electronic and Robotic Engineering}\par}
+
+\vfill
+
+\begin{minipage}{0.46\textwidth}
+\raggedright
+\textbf{Author}\\
+\rule{0.8\textwidth}{0.4pt}\\[0.2em]
+{\small\itshape (insert name and student number)}
+\end{minipage}
+\hfill
+\begin{minipage}{0.46\textwidth}
+\raggedleft
+\textbf{Supervisor}\\
+\rule{0.8\textwidth}{0.4pt}\\[0.2em]
+{\small\itshape (insert supervisor name)}
+\end{minipage}
+
+\vspace{1.1cm}
+{\large September 2026\par}
+\vspace*{0.4cm}
+\end{titlepage}
+
+%----- FRONT MATTER -----------------------------------------------------------
+\pagenumbering{roman}
+\setcounter{page}{2}
+
+\chapter*{Declaration}
+\addcontentsline{toc}{chapter}{Declaration}
+\markboth{Declaration}{Declaration}
+
+I declare that this dissertation is my own work, that it has not been submitted
+for any other degree or professional qualification, and that all sources of
+information and quotation have been properly acknowledged.
+
+All software described herein was implemented by the author, with the exception
+of the third-party libraries identified in \Cref{sec:tools}. All experimental
+data, figures and numerical results presented were generated by the author from
+training runs conducted for this project.
+
+\vspace{2.2cm}
+\begin{flushleft}
+Signed: \rule{7cm}{0.4pt}\qquad Date: \rule{3.5cm}{0.4pt}
+\end{flushleft}
+
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+\markboth{Acknowledgements}{Acknowledgements}
+
+{\itshape (Insert acknowledgements here --- supervisor, technical support staff,
+and any provider of computing facilities.)}
+
+\vspace{1em}
+
+Training was conducted on shared GPU infrastructure provided by the University
+of West London.
+
+%----- TABLE OF CONTENTS ------------------------------------------------------
+\cleardoublepage
+\tableofcontents
+\cleardoublepage
+\listoffigures
+\cleardoublepage
+\listoftables
+
+%----- MAIN MATTER ------------------------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\hypertarget{abstract}{%
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\markboth{Abstract}{Abstract}\label{abstract}}
+
+Model-based reinforcement learning promises to reduce the interaction cost of
+robot learning by replacing environment steps with rollouts inside a learned
+model of the world. This dissertation asks whether such a model can substitute
+for an analytical dynamics model in manipulator trajectory planning, and --- where
+it cannot --- measures precisely why.
+
+A faithful PyTorch implementation of DreamerV3 was developed for the Robosuite
+PickPlaceCan task on a 7-DoF Franka Emika Panda. The implementation was verified
+component-by-component against the reference specification and validated by a
+twelve-test numerical suite. Over three revisions and approximately 128,000
+environment steps, the work produced a policy that beats a uniform-random
+baseline by a factor of 4.91 in episode return (Welch \emph{t} = 3.92, \emph{p} = 0.0006,
+Cohen's \emph{d} = 1.24), halves the mean distance to the target object, achieves a
+statistically significant reaching rate of 25\% against 0\% for random, and ---
+in the final extended run --- grasps and lifts the object in 10--15\% of episodes
+on a sustained basis, with peak episode return rising from 11.8 to
+approximately 30.
+
+The central contribution is not the policy but the diagnostic method used to
+obtain it. Purpose-built instruments --- loss-term decomposition, open-loop
+imagination visualisation, a direct action-gradient test, and a plan-versus-
+execution comparison performed from an identical simulator state --- localised two
+distinct failure modes to specific, quantified causes. The first was a
+loss-scaling error that reduced the image reconstruction term to 0.8\% of the
+world-model objective and produced posterior collapse; free bits, widely
+described as the defence against this failure, is shown to be a one-sided guard
+that cannot prevent it. The second was a precision limit: the learned model
+predicts end-effector position to within approximately 0.128 m over the actor's
+15-step planning horizon, against a task tolerance of 0.05 m.
+
+A novel decomposition of that error shows that 83\% of it is present at the very
+first imagined step and only 17\% accumulates over the horizon. The binding
+constraint is therefore latent \emph{state estimation}, not dynamics \emph{prediction} ---
+a distinction with direct implications for how such models should be improved.
+
+A third finding concerns sparse-reward consolidation. For 70,000 steps the
+number of successful transitions in the replay buffer was static at 28, and the
+analysis presented here predicted that consolidation required a higher density.
+Extended training confirmed the prediction: the count rose to 214, the expected
+number of successes per training batch rose from 0.32 to 1.59, and grasping
+became sustained. The episode is reported in full, including the prematurely
+negative conclusion that the earlier data had supported.
+
+The work concludes with a general and testable claim: a planner cannot achieve a
+tolerance finer than its model's state error over the planning horizon.
+
+\textbf{Keywords:} model-based reinforcement learning, world models, trajectory
+planning, robotic manipulation, DreamerV3, Robosuite, posterior collapse
+
+\newpage
+
+\hypertarget{introduction}{%
+\chapter{Introduction}\label{introduction}}
+
+\hypertarget{motivation}{%
+\section{Motivation}\label{motivation}}
+
+Robotic manipulation is still one of the automated areas in engineering even after many years of research. The traditional approach uses a control pipeline that includes inverse kinematics, a dynamics model based on Denavit-Hartenberg parameters, a trajectory planner and a tracking controller. This method is accurate, reliable and well studied.. It falls apart in the very situations that matter most like when there is contact with objects, when dealing with soft or deformable materials or when tasks are hard to describe precisely but easy to show.
+
+Reinforcement learning offers another path. Of building a detailed model and planning inside it the agent learns a policy directly through interaction with the environment. The problem though is cost. Model-free reinforcement learning needs a number of interactions, with the real world. In video games this may not be an issue.. On physical robots every interaction takes real time causes wear and tear on parts and during exploration there’s a serious risk of breaking the robot or damaging things around it.
+
+Model‑based reinforcement learning tackles this problem directly. When the agent learns a model of how the environment behaves it can create experience by simulating that model forward and then train its policy on the fake data. Real interaction is then spent on making the model instead of making the policy better and the ratio between the two can be very large. The DreamerV3 architecture, on which this work is based performs 32 gradient updates for each environment step each update coming from rollouts a ratio that would be impossible without a learned model. In this light model‑based reinforcement learning is not a break from control but a replacement inside it. The structure stays familiar: there is a dynamics model, a cost function, a planning horizon and an optimisation over action sequences. What changes is where the model and the cost come from. Both are learned from data than derived from first principles. This view is developed throughout the dissertation. Is why the work is presented as a study in trajectory planning rather than as a study, in reinforcement learning.
+
+\hypertarget{problem-statement}{%
+\section{Problem Statement}\label{problem-statement}}
+
+The research question this dissertation addresses is:
+
+\begin{quote}
+\textbf{Can a learned latent world model substitute for an analytical dynamics
+model in manipulator trajectory planning, and if it cannot, what specifically
+is the limiting factor?}
+\end{quote}
+
+The second part of that question is on purpose. Many negative results in reinforcement learning are shared as an absence. The agent failed to learn the return didn’t go up. Without explaining why. These kinds of results are almost useless for building work. They don’t help you tell if the problem was a coding mistake, not computing power, a badly set objective or a real weakness, in the method itself. One goal of this work is to show that we can actually make that difference. To create the tools that allow us to do it.
+
+\hypertarget{aims-and-objectives}{%
+\section{Aims and Objectives}\label{aims-and-objectives}}
+
+The work had five objectives:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Implement DreamerV3} in PyTorch for a Robosuite manipulation environment and check DreamerV3 implementation against the published specification instead of simply saying that DreamerV3 is correct.
+
+
+\item
+  \textbf{Establish an evaluation protocol} that can separate learned behaviour from chance and include a random baseline measured under identical conditions.
+\item
+  \textbf{Characterise the learned model as a trajectory predictor},using the open-loop validation standard that is applied to any dynamics model.
+\item
+  \textbf{Diagnose failure to the level of mechanism}, Develop purpose-built instruments when standard training curves are not enough.
+\item
+  \textbf{Extract a generalisable finding}, about the conditions under which learned models can support manipulation planning.
+\end{enumerate}
+
+\hypertarget{contributions}{%
+\section{Contributions}\label{contributions}}
+
+This dissertation makes four contributions.
+
+\textbf{A verified implementation.} This dissertation contains a PyTorch implementation of DreamerV3 that has been adapted to Robosuite. Every component in this dissertation has been checked against the reference hyperparameters. A numerical suite of twelve tests in this dissertation covers the two- distributional loss, free-bits clamping order, gradient propagation into the image encoder and both actor-gradient modes.
+
+\textbf{A diagnostic toolkit.} his dissertation offers five instruments that answer questions that training curves cannot. The instruments in this dissertation are loss-term decomposition, open-loop imagination visualisation, latent-activity analysis, direct action-gradient measurement and plan-versus-execution comparison performed from a restored simulator state. The diagnostic toolkit in this dissertation located two failure modes that were invisible in logging.
+
+\textbf{Two diagnosed failure modes.} The first is a loss-scaling error that produces collapse identified arithmetically from a single logged value. The second is a precision limit, identified by measurement after a competing hypothesis was built and then refuted by the instrument created to test it.
+
+\textbf{A decomposition of planning error.} This dissertation compares the agent’s imagined plan with the execution of that plan starting from an identical simulator state. It shows that 83\% of the end-effector error appears at the imagined step while only 17\% accumulates over the fifteen-step horizon. This finding reframes the limitation, from dynamics prediction to latent state estimation. To the author’s knowledge this has not been reported before for a DreamerV3-class model.
+
+
+
+\hypertarget{scope-and-limitations}{%
+\section{Scope and Limitations}\label{scope-and-limitations}}
+
+Three limitations are stated at the outset and revisited in Section 7.5.
+
+The work uses a single random seed per configuration. The compute budget --- one
+shared university GPU --- did not permit the multiple seeds that would be needed
+to separate configuration effects from seed variance. Where a difference between
+runs is reported, it should be read as suggestive rather than established.
+
+The full pick-and-place task was not solved and was not attempted beyond the
+point where evidence indicated it was unreachable. Section 2.5 sets out the
+published basis for that decision.
+
+The recurrent state size was reduced from the reference specification to fit
+available memory, and mixed-precision arithmetic was used throughout. Both are
+noted where they may have contributed to observed behaviour.
+
+\hypertarget{dissertation-structure}{%
+\section{Dissertation Structure}\label{dissertation-structure}}
+
+Section 2 reviews the relevant literature and establishes what is already known
+about this task. Section 3 documents the implementation and its verification.
+Section 4 sets out the experimental design and evaluation protocol. Section 5
+presents results across three implementation revisions. Section 6 presents the
+diagnostic investigation, which is the methodological core of the work. Section
+7 discusses what generalises. Section 8 concludes.
+
+\newpage
+
+\hypertarget{background-and-related-work}{%
+\chapter{Background and Related Work}\label{background-and-related-work}}
+
+\hypertarget{reinforcement-learning-formalism}{%
+\section{Reinforcement Learning Formalism}\label{reinforcement-learning-formalism}}
+
+A reinforcement learning problem is specified as a Markov Decision Process
+(S, A, p, r, $\gamma$), in which an agent occupying state
+s\_t $\in$ S selects an action a\_t $\in$ A, transitions
+according to p(s\_\{t+1\} \textbar{} s\_t, a\_t), and receives reward
+r(s\_t, a\_t). The objective is a policy $\pi$(a \textbar{} s) maximising expected
+discounted return E{[} $\Sigma$\_t $\gamma$\^{}t r\_t {]}, where
+$\gamma \in$ {[}0, 1) trades immediate against future reward.
+
+Robotic manipulation based on camera observations breaks the Markov assumption in a way. A single image does not give the state of the system. You cannot see object velocity from one frame. Objects can be hidden important shape details get occluded. The gripper’s contact with an object is often unclear. All of this means the problem is an observed MDP. The agent can't just use the observation to decide. It must build up a sense of the state over time. That's why the model keeps a recurrent latent state. It doesn't treat each frame separately. This is the core reason, for the design choice. It's important to say this because it explains the choices made in Section 3.
+
+\hypertarget{model-free-methods-and-their-cost}{%
+\section{Model-Free Methods and Their Cost}\label{model-free-methods-and-their-cost}}
+Early reinforcement learning for manipulation used table-based representations and hand-made feature spaces. This limited its use to dimensional well-engineered settings as (Sutton \& Barto, 2018). I think this was a hurdle. Then deep neural networks. Let us learn from high-dimensional visual input all at once. Levine et al.~(2016) trained visuomotor grasping policies directly from RGB images using guided policy search. This result opened the way, to robot learning.
+
+Model-free deep reinforcement learning (DRL) subsequently demonstrated robust performance in simulation on manipulation tasks. Soft Actor-Critic (SAC) (Haarnoja et al., 2018) has become the de facto standard for continuous control due to its ability to utilize an off-policy approach, allowing for the reuse of previous transition data.
+
+Additionally, SAC utilizes two critics whose values are averaged together (minimized) in order to mitigate the inherent bias toward over-estimation that occurs as a result of using bootstrapped value estimates from noisy data.
+
+Finally, SAC incorporates a policy-entropy term into the reward function that promotes exploration and helps to prevent premature convergence to a specific strategy. PPO (Proximal Policy Optimization) (Schulman et al., 2017) represents a widely-accepted on-policy alternative that offers stability. Both methods suffer from a high degree of sample complexity. Both methods require millions of interactions with the environment to learn, and generalization degrades rapidly when there is a shift in the distribution of properties of objects within the scene or environmental parameters. Every time a gradient update is performed, new interactions with the environment must be collected.
+
+The model-based reinforcement learning method solves the problem of how to generate synthetic experience for the agent by learning an explicit model of the transition dynamics (i.e., p(s\_t+1, r\_t \textbar{} s\_t, a\_t) and then using this model to create additional experience. The first example of combining real and model-generated experience was presented in the Dyna architecture (Sutton, 1990). In general, there are two broad categories of current methods for solving model-based reinforcement learning problems. One category of methods includes those that perform lookahead planning in model space at each decision point (Schrittwieser et al., 2020), while the other category of methods trains an actor-critic using only imagined rollouts (Hafner et al., 2020). MBPO (Janner et al., 2019) has demonstrated that model-based data augmentation can match model-free performance on continuous control tasks, while significantly reducing the number of interactions with the environment required.
+
+However, MBPO relies on very short rollouts to minimize the compound effect of model bias and does not learn a structured latent state. The absence of a structured latent state limits the ability of MBPO to reason about long-term consequences of actions, which is essential for contact-rich manipulation.
+
+This cost argument is the reason sample efficiency recurs throughout this
+dissertation as the criterion against which the world model is judged.
+
+\hypertarget{world-models-and-the-dreamer-line}{%
+\section{World Models and the Dreamer Line}\label{world-models-and-the-dreamer-line}}
+
+A world-model approach was initially developed by Ha and Schmidhuber (2018). Their model consists of three separate components; a vision model which compresses raw observations into latent code, a memory model which predicts the subsequent latent state, and a small controller which maps predicted latent states to actions. All training for the controller occurs within the "dream" of the model. Once trained, the controller is implemented in the actual environment. This work demonstrated for the first time that a policy can be learned without interacting with the environment during the policy optimization process. Hafner et al. (2019) proposed PlaNet, which utilizes the Recurrent State-Space Model and plans in latent space using the Cross-Entropy Method. PlaNet achieves similar levels of performance as model-free approaches on visual DMControl tasks while requiring approximately fifty times fewer interactions with the environment. DreamerV1 (Hafner et al., 2020) replaced the planner in PlaNet with an Actor-Critic algorithm that was trained on differentiable imagined rollouts. DreamerV2 (Hafner et al., 2021) replaced the continuous Gaussian latent variable with discrete categorical variables that are trained through a Straight-Through Estimator -- 32 groups of 32 categories -- and improved the quality of representations for complex visual domain problems.
+
+DreamerV3 (Hafner et al., 2023) will be the focus of this thesis and represents an extension of the previously described work through the addition of several methods designed to allow one specific set of hyperparameters to be successful across significantly different types of environments. The core elements of each of the three versions of Dreamer are represented by the recurrent state space model (RSSM), which decomposes the latent state into a deterministic recurrent component h\_t and a stochastic component s\_t: 
+\begin{equation*}
+h_t = f\!\left(h_{t-1}, s_{t-1}, a_{t-1}\right)
+\end{equation*}
+
+\begin{equation*}
+\text{prior: } p(s_t \mid h_t) \qquad \text{posterior: } q(s_t \mid h_t, e_t)
+\end{equation*}
+
+where e\_t is an embedded representation of the current observation. The deterministic path carries long-term dependencies; the stochastic path represents the portion of the future that cannot be predicted based on historical data. To understand why Section 5 is dependent upon the distinction between the prior and posterior distributions, it is important to clearly define this distinction. Both networks predict the same latent state.
+
+However, the posterior network receives input regarding the current observation, whereas the prior network does not. When world model training occurs, the observation is always present, thus the posterior network is always used. When imagination occurs, there are no observations dreams do not possess sensors therefore only the prior network operates.
+
+As such, the quality of the policy's training data is determined solely by how well the prior distribution matches the posterior distribution; this difference is quantified by the Kullback-Leibler divergence (which will be discussed further below) and serves as the main metric for evaluating the diagnostic utility of the training log. One important aspect of the structure of the model becomes clear when considering the fact that h\_t is only based on s\_\{t--1\} and a\_\{t--1\}.
+
+Therefore, the current observation only affects the feature vector {[}h\_t, s\_t{]} through the posterior sample. When the posterior no longer depends upon the embedding of the observation, the feature vector contains zero information about what the robot is observing at that moment. This type of failure mode  "posterior collapse" is the focus of Section 5.1. The authors of DreamerV3 proposed several methods to enable the model to function across multiple domains without requiring task-specific parameter adjustments. There are four relevant to our discussion.
+
+\textbf{Symlog transformation.} symlog(x) = sign(x)$\cdot$log(1 + \textbar x\textbar) compresses observations and prediction targets spanning many orders of magnitude; it is then inverted to map predictions back. For a 30-dimensional proprioception vector consisting of joint angles with magnitudes of order $\pi$, positions with magnitudes of order 0.5 meters, and velocities exceeding 1.0, this puts all of the components onto a similar scale prior to normalization.
+
+\textbf{Symexp two-hot regression.}Two-hot regression was used instead of a direct scalar reward regression. The network produces a distribution over 255 fixed bins that are distributed equally in symlog space. The target is represented as probabilities split between the two bins that it falls into. Cross-entropy loss was used. This approach addresses the issue of varying magnitudes of gradients when using mean square error; specifically, with MSE, the gradient is proportional to the error, which means it is also proportional to the magnitude of the reward.
+
+Therefore, if there are many small rewards and one or two very large rewards, those few large rewards will have much greater influence on the gradients than all of the other smaller rewards combined. This type of situation occurs in PickPlaceCan where the grasping reward is approximately 44 times greater than the idle reward. It is this exact situation where two-hot regression has been shown to perform well. 
+
+\textbf{KL balancing with free bits.} The KL term is split into two, each with its
+own stop-gradient and coefficient:
+
+\begin{equation*}
+\mathcal{L}_{\mathrm{KL}} = \beta_{\mathrm{dyn}}\max\!\bigl(\text{free},\,\mathrm{KL}[\mathrm{sg}(q)\|p]\bigr) + \beta_{\mathrm{rep}}\max\!\bigl(\text{free},\,\mathrm{KL}[q\|\mathrm{sg}(p)]\bigr)
+\end{equation*}
+
+The first component of training the prior is to predict the posterior, while the second component of training the posterior is to ensure that it can be predicted. The "free-bits" floor developed by Kingma et al. (2016) prevents the model from compressing the latent so much that it ignores observations by removing gradients when the divergence drops below one nat.
+
+However, as demonstrated in Section 5.1, the protection provided by the free-bits floor is less effective than many people assume.
+
+\textbf{Percentile return normalisation.} The returns for each percentile were divided by an exponentially weighted moving average (EWMA) of the difference between the 5th and 95th percentile. This value has a lower bound of one. There was no subtraction of the mean. This is important for systems with few rewards as subtracting the mean will result in negative penalties for slightly better than average results. The lower bound of one will prevent large amounts of noise being amplified into very large gradient values when there is a small difference between the 5th and 95th percentile..
+
+\hypertarget{robosuite-and-the-pickplacecan-task}{%
+\section{Robosuite and the PickPlaceCan Task}\label{robosuite-and-the-pickplacecan-task}}
+
+MuJoCo (Todorov et al., 2012) has been the de facto standard physics engine for continuous
+control and manipulation research, as it provides accurate rigid-body dynamics along with
+efficient contact simulation. Robosuite (Zhu et al., 2020) is a modular simulation framework
+built upon MuJoCo which provides standardized manipulation environments, various robot models,
+and a variety of controllers. The MetaWorld benchmark (Yu et al., 2020) provides an additional
+multi-task evaluation that includes pick-and-place among fifty different tasks. We use the
+Franka Emika Panda, a seven-degree-of-freedom robotic arm with a parallel-jaw gripper,
+under an operational-space controller.
+
+A significant decision in this regard is selecting which type of controller will be employed. With a joint velocity controller, the action vector defines a target angular velocity for each joint; therefore, if an agent wishes to displace the gripper by 5 cm in the x-direction (laterally), it would have to identify how to coordinate the seven joints to achieve this displacement i.e., use reward to learn inverse kinematics.
+
+In contrast, in operational space control (Khatib, 1987), the action vector defines a desired end-effector displacement and change in orientation. As such, the controller determines the kinematic solution. Using this approach eliminates the need to learn inverse kinematics and has been used in nearly all reported Robosuite manipulation research.
+
+The Pick-and-Place task is one of the most thoroughly investigated manipulation tasks in robotics. It requires a robot to find a target object; develop and perform a plan for grasping the object; lift the object; move the object to its final destination; and drop the object off at the final destination (Levine et al., 2016). PickPlaceCan is an example of this task developed within Robosuite. The arm of the robot must first locate a can; then grasp the can; next, lift the can; after that, transport the can to the designated bin; and finally, release the can into the bin.
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+Stage & Condition & Contribution \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+reach & gripper approaches the can & (1 -- tanh(10d)) $\times$ 0.1 \\
+grasp & fingers contact and close & 0.35 \\
+lift & can rises from the table & 0.35 $\rightarrow$ 0.5 \\
+hover & can moves over the target bin & 0.5 $\rightarrow$ 0.7 \\
+\end{longtable}
+
+The reach term is a unique element of the robotic arm which operates randomly and can be collected reliably. The value of this term is approximately 0.002 per step. The reach term represents all other terms after the first one that require a grasp. To achieve a grasp, the gripper must close at the correct time and location. As such, the resulting reward landscape is dense in its initial portion and essentially sparse in subsequent sections; this pattern occurs as a contributing factor throughout the results.
+
+The range term is also analytically invertible, and that is what this study uses. Since r\_reach = (1 -- tanh(10d)) $\times$ 0.1, it is possible to retrieve the actual distance as dd = arctanh(1 -- r\_reach / 0.1) / 10.
+
+Thus, a distance metric is created that is guaranteed to be consistent with the reward the environment generated, avoiding the indexing assumptions made in an earlier version of the implementation that were incorrect.
+
+
+\hypertarget{prior-results-on-this-task}{%
+\section{Prior Results on This Task}\label{prior-results-on-this-task}}
+The establishment of what we know about PickPlaceCan is an important contextualization of the results from Section 5. It is provided at this point in the paper to provide the reader with the background information prior to reading the "negative" results, as opposed to post-reading those results. The benchmarking report authored by the Robosuite developers themselves indicates that SAC does not perform successfully on PickPlaceCan using the default parameters.
+
+The sole instance of a successful application of purely reinforcement learning to the pick-and-place problem involved a curriculum-based approach.
+
+Specifically, a policy that had been trained to near-optimal performance on a block-lifting task for about 5 million time steps was subsequently used as a starting point to train the same policy on pick-and-place for an additional 10 million time steps, resulting in a total training duration of 15 million time steps. The total number of time steps required for training should be viewed in light of the budgetary constraints of our study. We had a total budget of approximately 89,000 time steps less than 1 percent (0.6\%) of the amount reported as necessary by the researchers who applied this method successfully. Methods that are able to perform well on tasks like the PickPlaceCan task tend to include some form of external structure. Robomimic (Mandlekar et al., 2021) provides 200 human demonstrations of each task. The performance of various behavioral-cloning variations that were trained using these demonstrations achieved very high success rates. Other approaches include augmenting the action space with engineered behaviors or primitives (Nasiriany et al., 2022). It appears clear that unaided reinforcement learning is not sufficient to solve the PickPlaceCan task under the same budgetary constraints as our study.
+
+Furthermore, all successful methods in this domain have utilized demonstration data or engineered structure to replace the need for extensive exploration.
+
+
+\hypertarget{diagnostic-practice-in-reinforcement-learning}{%
+\section{Diagnostic Practice in Reinforcement Learning}\label{diagnostic-practice-in-reinforcement-learning}}
+
+The primary point of this research paper is that the typical way of measuring reinforcement learning (telemetry) does not work well when trying to find out why a model failed. Learning curves show loss, gradient norm, entropy, and return.
+
+While all four metrics will tell you that there is something wrong, none will tell you exactly what is wrong. It is similar to trying to debug a control system using only the output signal and being unable to see the intermediate signals. The literature on reproducibility in deep reinforcement learning (Henderson et al., 2018) shows how much published research is dependent upon implementation choices, random seed values and other unspecified choices made by researchers.
+
+Furthermore, studies on reproducing published research have shown how often reported differences between different reinforcement learning algorithms disappear once researchers carefully replicate them. This means that if we want to ensure our work is correct, we cannot simply rely on a learning curve that appears to show progress. We must confirm its correctness and if a model fails, we must locate the cause of its failure instead of just blaming it.
+
+\textbf{The research gap.} As stated above, DreamerV3 has been established as the state-of-the-art in generalized world-model reinforcement learning, and it has provided some very good performance across multiple benchmarks.
+
+However, the use of DreamerV3 in pick-and-place manipulation has been largely unstudied and therefore there is no empirical study of the limitations of DreamerV3 on these types of tasks — specifically, how efficient it is at learning to perform the tasks, how accurately it can predict its own behavior using its learned model, and how well it performs when compared to other algorithms (i.e. why it succeeds or fails).
+
+Therefore, this dissertation will fill this void by conducting an empirical investigation into DreamerV3's limitations on pick-and-place manipulation.
+
+In addition to filling the literature gap, this dissertation will also follow a diagnostic approach to studying DreamerV3's limitations. Diagnosing a limitation requires tools beyond those provided by typical telemetry. The tools developed in Chapter 6 represent an attempt to create those tools.
+
+While the ideas behind them (e.g. open-loop rollout validation, gradient magnitude inspection) have long existed within the field of machine learning, they have never before been systematically applied to a DreamerV3-like model, nor have they ever been formally compared against the actual execution from a restored simulator state.
+
+\newpage
+
+\hypertarget{methodology-and-implementation}{%
+\chapter{Methodology and Implementation}\label{methodology-and-implementation}}
+
+\hypertarget{overview}{%
+\section{Overview}\label{overview}}
+
+The system consists of three independently trained modules, each working with a common latent representation. These modules include a world model that learns the dynamics of the environment using previously experienced (replayed) data, an actor that makes decisions about what action to take in each state, and a critic that calculates values for states or actions. The world model has access to actual environmental data, while the actor and critic have access to simulated (imagined) data. The reward head is the only link between these two types of data, which is why it is given particular consideration in terms of calibration in Section 6. The training procedure iterates through two phases at a constant rate. In the first phase, one step is taken within the environment, the resulting transition is recorded into a replay buffer, and 32 gradient updates are made on batches of transitions sampled from the replay buffer. The asymmetry of these two phases represents the full economic rationale behind this architecture; interacting with a real robot is costly, whereas simulating interactions with a virtual robot is almost free.
+
+\hypertarget{world-model-architecture}{%
+\section{World Model Architecture}\label{world-model-architecture}}
+
+\textbf{Encoders.} Two encoders create a shared representation. The image encoder is composed of a four-layer stride-2 convolutional stack (64 $\rightarrow$ 32 $\rightarrow$ 16 $\rightarrow$ 8 $\rightarrow$ 4 spatially) with 4x4 zero-padded kernels which allow for the spatial dimension to be halved exactly at each layer; thus, allowing the decoder to mirror this structure. RMS normalization (Zhang \& Sennrich, 2019) is applied to the channels of each convolution and then an activation function (SiLU) is used. The vector encoder is an MLP (two layers) that takes as input a 30-dimensional proprioceptive vector and transforms it using the symlog transform prior to the first linear layer. The two resulting vectors are then concatenated.
+
+\textbf{Recurrent State-Space Model.} 
+Recurrent State Space Model The Recurrent State Space Model (RSSM) has a 2048-dimensional deterministic state, and a 32$\times$32 categorical stochastic state, for a total of 3072 features. The deterministic path is composed of a Gate Recurrent Unit (GRU) cell which takes as input the normalized linear projection of the previous stochastic state and action. Prior and posterior head networks are two-layer multi-layer perceptrons (MLP) producing 1024 logits each, which are then reshaped into 32 categorical variables, with 32 categories. Straight Through Gumbel Softmax (Jang et al., 2017) is used to draw samples, and thus gradients can be back propagated to the logits, but the sampled state remains one-hot. A 1\% uniform mixture is added to all of the categorical logits prior to both the sampling process, and the KL divergence calculation. This ensures that every category has some non-zero probability, and therefore the divergence is finite, and gradients do not vanish for unutilized categories.
+
+\textbf{Prediction heads.} Four heads will read the feature vector. The image decoder will mirror the encoder through transposed convolutions. The vector decoder is a two-layer MLP that will predict the symlog-transformed proprioception vector. The reward head will output 255 bin logits read through the two-hot decoder. The continuation head will output a single logit for a Bernoulli episode continuation prediction. All reward head, critic and actor mean layers will be initialized to zero, which means that the model will predict exactly zero at initialization instead of hallucinating random values that the actor would then chase.
+
+\hypertarget{actor-and-critic}{%
+\section{Actor and Critic}\label{actor-and-critic}}
+
+The Actor is a 3-layer MLP that outputs the mean and standard deviation of a Gaussian distribution. It uses the Tanh function to squash these values to be within the range {[}--1, 1{]}, due to the operational-space controller constraints on the actions. Reparameterization is used for sampling, which allows gradients to flow from the imagined returns back through the action to the Actor's weight parameters. This is the \emph{dynamics backpropagation} path. The Critic is a distributional network that produces 255 Bin Logits. These are decoded using the same Two-Hot Decoder as the Reward Head. This choice is important because Lambda-Returns have a larger range than single step Rewards. Early in training, Lambda-Returns will be close to zero; however, after a successful Grasp, they can reach upwards of ten. A Slow Critic (an Exponential Moving Average of the Critic Weights with Decay 0.98), provides BootStrap Targets for the Critic. If a Slow Critic were not present, the Critic would build its Training Target from its own Predictions, so as the Critic updates, so does the Target, and as the Critic pursues the new Target, it will pursue it further. The Lagged Copy of the Critic causes the Target to drift approximately 50 times slower than the Critic learns. As such, what was originally an Unstable Chase is converted to a Stable Chase.
+
+
+Imagined returns use $\lambda$-returns with bootstrapping:
+
+\begin{equation*}
+R_t = r_t + d_t\bigl[(1-\lambda)V_t + \lambda R_{t+1}\bigr], \qquad d_t = c_t\,\gamma
+\end{equation*}
+
+where c\_t is the predicted continuation probability and $\gamma$ the discount.
+The discount enters as an explicit factor; Section 5.1 documents a revision in
+which it did not, and the consequences.
+
+\hypertarget{deliberate-deviations-from-the-reference}{%
+\section{Deliberate Deviations from the Reference}\label{deliberate-deviations-from-the-reference}}
+
+Four deviations were made, each for a stated reason.
+
+\textbf{Adam rather than LaProp}, and norm-based gradient clipping rather than
+adaptive clipping. These are engineering substitutions rather than algorithmic
+changes; they simplify the implementation at some cost in optimiser
+sophistication.
+
+\textbf{Standard GRU cell} rather than the block-diagonal variant. The
+block-diagonal formulation matters chiefly above roughly 4096 deterministic
+units; this implementation uses 2048.
+
+\textbf{Reduced recurrent state.} The reference 200M-parameter configuration uses
+8192 deterministic units. This work uses 2048 to fit the available GPU memory.
+This is a genuine reduction in model capacity and is noted as a limitation.
+
+\textbf{Dynamics backpropagation rather than REINFORCE} for the actor gradient. The
+reference reports that reparameterised backpropagation substantially outperforms
+the score-function estimator for continuous control. It was also a direct
+response to an observed failure: with REINFORCE, the tanh-normal log-density
+contains a --log(1 -- a\textsuperscript{2}) term that diverges as actions approach the $\pm$1
+bounds which operational-space control constantly hits, and this produced actor
+loss excursions of $\pm$350 that destroyed the policy. The REINFORCE path
+remains available behind a configuration flag.
+
+\hypertarget{fidelity-to-the-reference-specification}{%
+\section{Fidelity to the Reference Specification}\label{fidelity-to-the-reference-specification}}
+
+Every hyperparameter that defines the algorithm was matched to the published
+values. This table is presented in full because it is the primary evidence that
+subsequent negative results reflect the method rather than the implementation.
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule\noalign{}
+Parameter & Reference & This work & Match \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Batch size $\times$ length & 16 $\times$ 64 & 16 $\times$ 64 & Yes \\
+$\beta$\_pred & 1.0 & 1.0 & Yes \\
+$\beta$\_dyn & 0.5 & 0.5 & Yes \\
+$\beta$\_rep & 0.1 & 0.1 & Yes \\
+Free nats & 1.0 & 1.0 & Yes \\
+Unimix ratio & 1\% & 1\% & Yes \\
+World-model LR / $\epsilon$ & 1e-4 / 1e-8 & 1e-4 / 1e-8 & Yes \\
+Imagination horizon & 15 & 15 & Yes \\
+Return $\lambda$ & 0.95 & 0.95 & Yes \\
+Discount $\gamma$ & 0.997 & 0.997 & Yes \\
+Critic EMA decay & 0.98 & 0.98 & Yes \\
+Critic EMA regulariser & 1.0 & 1.0 & Yes \\
+Return normalisation & P95--P5, limit 1, decay 0.99 & identical & Yes \\
+Actor / critic LR / $\epsilon$ & 3e-5 / 1e-5 & 3e-5 / 1e-5 & Yes \\
+Latent dimensions & 32 $\times$ 32 & 32 $\times$ 32 & Yes \\
+Two-hot bins & 255 & 255 & Yes \\
+Deterministic state & 8192 & 2048 & Reduced \\
+World-model gradient clip & 1000 & 1000 & Yes \\
+\end{longtable}
+
+Every constant defining the algorithm is numerically identical to the reference.
+The single reduction is the recurrent state size, which is a memory constraint.
+
+\hypertarget{implementation-verification}{%
+\section{Implementation Verification}\label{implementation-verification}}
+
+Asserting that an implementation is correct is not the same as demonstrating it.
+A twelve-test numerical suite was developed, executed against the final
+implementation, and passes in full. The tests are summarised here; full listings
+are in Appendix B.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+\#
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Test
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+What it establishes
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & Training step returns finite losses & No NaN at initialisation \\
+2 & Reconstruction at reference scale & Summed over pixels, not averaged \\
+3 & $\gamma$ affects $\lambda$-returns & Discount is actually applied \\
+4 & Two-hot round-trip within 2\% & Encoding/decoding is lossless in range \\
+5 & Free bits clamps element-wise & Clamping precedes the mean \\
+6 & Actor gradient reaches actor weights & Dynamics path is connected \\
+7 & World-model gradient reaches image encoder & Reconstruction propagates \\
+8 & Collapse check reports a ratio & Diagnostic is functional \\
+9 & Ten consecutive updates remain finite & No drift to NaN \\
+10 & REINFORCE uses detached log-probability & Score-function estimator unbiased \\
+11 & Both actor-gradient modes run & Neither path is broken \\
+12 & \texttt{vector\_loss\_scale} changes the loss & Configuration is wired through \\
+\end{longtable}
+
+Tests 2, 3, 5 and 12 were added specifically because each corresponds to a defect
+that had previously occurred and gone undetected. They function as regression
+tests: each would fail loudly if the corresponding fix were reverted.
+
+\hypertarget{environment-instrumentation}{%
+\section{Environment Instrumentation}\label{environment-instrumentation}}
+A Robosuite environment wrapper extracts per step task stage metrics (gripper reached, grasped, lifted or placed and actual metric distance to the object) from the environment; however, these metrics are not exposed by the environment. The distance metric is noteworthy as a prior iteration of this metric contained a significant error. Using the MuJoCo site and body position arrays directly produced values of approximately 17.0, which is clearly not a metric distance for a desktop scene of less than 2 meters. Instead of guessing at the correct array index, the current implementation uses the inverse of Robosuite's reach reward as described in Section 2.4. This approach ensures consistency with Robosuite's calculation of reach rewards. A direct simulator query is also included as a backup method and is validated against a three meter ceiling.
+
+Therefore, an incorrect array index is rejected instead of being recorded as data. It was deemed appropriate to record this example because it exemplifies a broader principle: a metric that appears reasonable but is incorrect can be far more detrimental to data quality than a metric that is clearly flawed.
+
+Furthermore, metrics based upon quantities that have previously been calculated by the environment tend to be more reliable than those created through reconstruction.
+
+\hypertarget{replay-buffer-and-alignment}{%
+\section{Replay Buffer and Alignment}\label{replay-buffer-and-alignment}}
+
+The buffer stores tuples of image, proprioception vector, action, reward and
+termination flag, with capacity 500,000 and sequence length 64. The alignment
+convention is stated explicitly in the implementation because it is a common
+source of silent off-by-one defects: the stored action at index t is the
+action taken \emph{from} observation t, and the RSSM is unrolled with
+\texttt{obs\_step(h,\ s,\ a=action{[}t-1{]},\ embed=embed{[}t{]})} --- that is, the action that led
+\emph{into} the current observation. Episode boundaries within a sampled window reset
+the latent state and mask the incoming action.
+
+\newpage
+
+\hypertarget{experimental-design}{%
+\chapter{Experimental Design}\label{experimental-design}}
+
+\hypertarget{tasks}{%
+\section{Tasks}\label{tasks}}
+
+Two tasks are related to the experimental design; however, only one was completed.
+
+\textbf{PickPlaceCan} is the target task that is described in Section 2.4. It has a four-stage reward structure. The first stage (reaching) has a dense reward structure, while the remaining three stages have a sparse reward structure.
+
+\textbf{Lift} which involves lifting a cube from the table, was identified as a positive control. The significance of Lift is purely methodological. Since it can be accomplished through random exploration, the grasp reward will enter the replay buffer during the prefill phase, and thus a successful implementation of Lift should also accomplish this task. Without this type of positive control, it would be impossible to determine whether a failure to perform the more difficult task was due to an implementation error or whether there was simply no way to accomplish the more difficult task using the current methods. The plan to conduct this experiment was made, but the experiment was cancelled due to compute constraints and a hardware malfunction as stated in Section 7.5. The lack of a positive control is the primary methodological weakness of this study.
+
+\hypertarget{configuration}{%
+\section{Configuration}\label{configuration}}
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Setting & Value \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Robot & Franka Emika Panda, 7-DoF \\
+Controller & Operational-space (pose) \\
+Observations & 64$\times$64 RGB (agentview) + 30-d proprioception \\
+Control frequency & 20 Hz \\
+Episode horizon & 500 steps (25 s simulated) \\
+Reward shaping & Enabled \\
+Prefill & 10,000 uniform-random steps \\
+Train ratio & 32 gradient steps per environment step \\
+Replay capacity & 500,000 transitions \\
+Mixed precision & Enabled (fp16) \\
+\end{longtable}
+
+The proprioception vector comprises end-effector position (3), end-effector
+orientation quaternion (4), gripper joint positions (2), arm joint positions
+(7), and object state (14), totalling 30 dimensions.
+
+\hypertarget{evaluation-protocol}{%
+\section{Evaluation Protocol}\label{evaluation-protocol}}
+There are reasons why evaluation is distinct from training telemetry.
+For example, training curves show the average over several previous episodes, calculated while the policy is being updated and while the exploration noise is operating. Training curves are helpful for tracking progress but not appropriate for making claims about performance. The protocol followed for this project evaluates each policy using two sets of N=20 episodes. One set of episodes is run using the deterministic policy (i.e., using the mean of the distribution instead of sampling), and another set of N=20 episodes are run with random actions in the same session, using the same environment and with the same number of steps per episode. A random baseline is required and not just a formality. An episode return of 4.4 cannot be interpreted by itself; however, if you have a random baseline of 0.97 and get a return of 4.4, that is a valid result. Previous versions of this research yielded policies that performed worse than random on certain metrics. Had there not been a comparison with a random baseline, these negative results would have gone unnoticed. The random baseline also serves as a method to verify that your measurement system is functioning properly: when randomly sampling from {[}--1, 1{]}, your gripper should close approximately 25\% of the time, and the measured value of 24.9\% indicates that your measurement system is working correctly.
+
+Statistical Analysis: The comparison of the episode returns will be conducted via Welch's \emph{t}-test (since there are no assumptions made about equal variances, and as previously noted the variance in agent return is significantly greater than that of the baseline).
+
+In addition to reporting the p-value of each test, I will report the effect size using Cohen's \emph{d}. Comparisons of stage success rates (defined by a proportion of 20 trials) will be made using Fisher's Exact Test. For the success rates themselves, I will use Jeffreys Confidence Intervals. If a rate has been calculated from only one successful trial, I will state so, and present it as an existence proof of success and not as a proportion.
+
+\hypertarget{the-diagnostic-toolkit}{%
+\section{The Diagnostic Toolkit}\label{the-diagnostic-toolkit}}
+
+The five instruments were created. Each instrument is described in detail in Section 6 along with what results it generated. They are being referred to as part of the experimental design (rather than as an impromptu decision) because their creation was a planned methodological choice.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.5000}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.5000}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Instrument
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Question answered
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Loss-term decomposition & Which term dominates the objective? \\
+Open-loop imagination visualiser & What does the dream actually look like? \\
+Latent-activity analysis & Is the learned representation used? \\
+Action-response gradient test & Does imagination respond to actions? \\
+Plan-versus-execution comparison & Does executing the plan produce what was imagined? \\
+\end{longtable}
+
+The third and final device is unique to this work and is discussed in detail below since the way it was designed restricts what can be done with it. It captures the state of the MuJoCo simulator after the conditioning stage, allows the actor to develop a self-determined plan, sets the simulator back to the same state as when it was originally captured, and executes that same action sequence. Because the initial conditions are set exactly as they were when the actor developed its plan, the only difference between the imagined rollout and actual execution is the world model itself.
+
+In addition to being the usual open-loop validation test for all learned dynamics models, this validation also provided a decomposition of results presented in Section 6.5.
+
+\hypertarget{compute-budget-and-its-consequences}{%
+\section{Compute Budget and Its Consequences}\label{compute-budget-and-its-consequences}}
+All of the training took place on a single university-owned GPU, which could be accessed via a container. After the prefill step, throughput was approximately 500-1000 environment steps per hour because every environment step required 32 gradient updates. These budgetary constraints had an impact on the experimental design in several important respects.
+
+First, these budgetary constraints prevented us from using multiple random seeds.
+
+Second, these budgetary constraints prevented us from systematically sweeping through hyperparameters, as is common practice.
+
+Third, these budgetary constraints made it impossible for us to meet the published requirements for achieving full-task performance (as described in section 2.5) by two orders of magnitude.
+
+Finally, these budgetary constraints prevented us from repeating the experiment after a hardware failure caused the experiment to terminate early. Our strategy was to prioritize diagnosis over exploration. Given that we were limited to running only a few different experiments, we felt that the value added by interpreting each experiment far exceeded the value added by simply conducting additional experiments. This reasoning led to the development of our diagnostic toolbox and ultimately our claim of contribution from this thesis.
+\newpage
+
+\hypertarget{results}{%
+\chapter{Results}\label{results}}
+
+The results of this study have been organized into a series of three revisions to the implementation of the system. In lieu of organizing these results into a single, well-defined experiment, the authors' presentation of the sequential development of the system provides evidence that the diagnostic process used to identify problems at each step in the implementation process was a continuous process of learning.
+
+\hypertarget{revision-1-posterior-collapse}{%
+\section{Revision 1 --- Posterior Collapse}\label{revision-1-posterior-collapse}}
+
+\hypertarget{symptoms}{%
+\subsection{Symptoms}\label{symptoms}}
+
+The first fully implemented training run went for 15k steps and produced no learning whatsoever. The telemetry taken during steps 10k-15k are listed below.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f01_rev1_worldmodel.png}
+\caption{World-model diagnostics, revision 1. The KL divergence hovers near 0.6, the gradient norm has collapsed to 0.01 and is flat, and the continuation loss has fallen to zero.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f02_rev1_losses.png}
+\caption{World-model losses, revision 1. Reconstruction sits at approximately 0.005, the reward loss oscillates without trend, and the total loss is pinned at 0.645.}
+\end{figure}
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+Metric & Value & Interpretation \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{world\_model/loss} & 0.645, flat & Not decreasing \\
+\texttt{world\_model/grad\_norm} & 0.01, flat & \textbf{Not learning at all} \\
+\texttt{world\_model/kl} & 0.60 & 0.019 nats per latent (max 3.466) \\
+\texttt{world\_model/reconstruction} & 0.005 & Implausibly small \\
+\texttt{policy/*\_rate} & all exactly 0 & Nothing achieved \\
+\texttt{reward/rolling\_return} & 1.17 $\rightarrow$ 0.38 & \textbf{Getting worse} \\
+\end{longtable}
+
+The most important observation from these measurements was the gradient norm. Since clipping had been set to 100 there were no clipping actions taken and the gradient was effectively zero. The world model ceased learning around step 11k and remained stagnant after that point.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f03_rev1_actor.png}
+\caption{Actor telemetry, revision 1. Entropy fluctuates between 4.5 and 9 while the actor loss drifts without corresponding improvement in behaviour.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.8}{diss_figs/f04_rev1_policy.png}
+\caption{Policy stage rates, revision 1. Reach, grasp, lift and place are all identically zero; the minimum distance is flat between 0.19 and 0.25 m.}
+\end{figure}
+
+\hypertarget{diagnosis-by-loss-decomposition}{%
+\subsection{Diagnosis by Loss Decomposition}\label{diagnosis-by-loss-decomposition}}
+
+The value of 0.645 was not simply an uninformative value; rather, it had some information. When we decompose the world model's objective function at the free bit floor, we see that: 
+
+\begin{verbatim}
+KL term at the floor  = 0.5 x 1.0 + 0.1 x 1.0 = 0.600
+reconstruction                                = 0.005
+reward                                        = 0.040
+continuation                                  = 0.000
+                                                -----
+                                                0.645   <- the logged value
+\end{verbatim}
+
+The loss of the world model consisted of the free-bit floor and random noise. The KL term added a constant (with a zero gradient), and all other terms were far too small to influence the overall value. This allows us to identify the error in the world model's objective function quantitatively using only one log value, without conducting any further experimental evaluations.
+
+\hypertarget{root-cause}{%
+\subsection{Root Cause}\label{root-cause}}
+
+\begin{verbatim}
+recon_loss = F.mse_loss(rec, tgt_img)     # reduction='mean'
+\end{verbatim}
+
+By default, PyTorch's \texttt{mse\_loss} averages across each of the three dimensions; i.e., 3 $\times$ 64 $\times$ 64 = 12,288 pixels. The reference implementation adds the values across the pixel dimensions, then averages only over the batch and time.
+
+Thus, the reconstruction term was about 12,000 times less than what it was supposed to be: 0.005 versus an expected range of 50--150. In comparison with a KL term of 0.600, reconstruction contributed \textbf{0.8\% of the total objective}.
+
+\hypertarget{why-this-produces-collapse}{%
+\subsection{Why This Produces Collapse}\label{why-this-produces-collapse}}
+The optimizer has two options. If the posterior distribution includes an explicit representation of the camera's location, then the posterior distribution will consume a large amount of latent capacity.
+
+In addition, the KL divergence will increase since a posterior distribution that is dependent upon the input image will be more difficult for the prior to predict. Conversely, if the posterior distribution does not depend on the camera's location, then the posterior distribution will be equivalent to the prior distribution.
+
+As a result, the KL divergence will be reduced to zero, and the overall loss will be reduced by as much as 0.6. There is only one component of the loss function that is resistant to this effect, which is reconstruction.
+
+However, reconstruction contributed less than one percent to the overall loss (0.005).
+
+Thus, the model became "blind."
+
+Although the model achieved a high score, this was primarily due to the fact that a relatively static tabletop scene is easily predicted by using the mean image. This observation is supported by data. A KL divergence of 0.60 divided among 32 latent variables is approximately 0.019 nats per variable. This compares favorably to a maximum possible KL divergence of log(32) = 3.466 nats.
+
+Therefore, for all practical purposes, the prior and posterior distributions were identical. Since h\_t did not carry any direct observational information, the feature vector {[}h\_t, s\_t{]} contained no information regarding what the camera was observing.
+
+\hypertarget{free-bits-is-a-one-sided-guard}{%
+\subsection{Free Bits Is a One-Sided Guard}\label{free-bits-is-a-one-sided-guard}}
+Free bits are often described as being the defense against posterior collapse. The results presented here indicate that this description is incomplete in an important manner. Free bits establish a lower bound for the KL loss by clipping the gradient to zero if the KL loss falls below one nat.
+
+Consequently, free bits remove any motivation to decrease the divergence.
+
+However, free bits cannot provide motivation to increase the divergence; this can only occur through a prediction term that relies heavily upon observational data. In cases where the prediction term has been improperly scaled, free bits will not inhibit collapse. Instead, free bits will maintain the KL loss at its lower bound as the latent variable becomes blind, thus reproducing the very behavior we observed: KL loss maintained at 0.60, providing a constant 0.600 contribution to the total loss, with zero gradient. The previous discussion is a general observation about multi-term objective functions as opposed to a DreamerV3 specific issue. This topic will be elaborated upon in Section 7.1.
+
+\hypertarget{a-second-independent-defect}{%
+\subsection{A Second, Independent Defect}\label{a-second-independent-defect}}
+The use of a discount factor has not been applied to the $\lambda$-return. The continuation head is the sole means of discounting in the $\lambda$-return. The continuation head produces an output value close to 1.0 (as shown in Figure 1 where the continuation loss approaches 0) due to the limited number of terminations occurring when the horizon is 500 steps or greater.
+
+\begin{verbatim}
+nxt = rew[:,t] + cont[:,t] * ((1-lam)*val[:,t] + lam*nxt)
+\end{verbatim}
+
+Therefore, the agent used a discount rate of $\gamma$ = 1.0, rather than the intended 0.997; thus, the configured discount parameter was ignored. When the bootstrap values are not discounted, the value associated with each state may increase without limit. This is why the returns increased to approximately 3.0 while the average reward per step was only 0.002.
+
+\hypertarget{revision-2-healthy-model-saturated-actor}{%
+\section{Revision 2 --- Healthy Model, Saturated Actor}\label{revision-2-healthy-model-saturated-actor}}
+
+\hypertarget{what-the-fixes-achieved}{%
+\subsection{What the Fixes Achieved}\label{what-the-fixes-achieved}}
+
+There were six modifications made: the reconstruction was performed by summing across the pixel dimension; the discount rate (c\_t $\gamma$) was explicitly used; the gradient clipping was changed back to its original value of 1,000; the actor's entropy coefficient was set to the original value of 0.0003; a vector-based decoder head was added because the original reference model reconstructed each observation modality individually; and collapse diagnostic information has been added to the log.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Metric
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Revision 1
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Revision 2
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{world\_model/reconstruction} & 0.005, flat & 60 $\rightarrow$ $\sim$5, falling \\
+\texttt{world\_model/vector\_reconstruction} & --- & 2.1 $\rightarrow$ 0.05, converged \\
+\texttt{recon\_std\_ratio} & --- & $\sim$1.0, healthy \\
+\texttt{returns/scale} & pinned at floor 1.0 & 8--10 \\
+\texttt{policy/min\_distance} & 0.19--0.25, flat & \textbf{0.198 $\rightarrow$ 0.140, monotone} \\
+\end{longtable}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f05_rev2_worldmodel.png}
+\caption{World-model diagnostics, revision 2. Reconstruction falls from 60 toward 5, vector reconstruction converges to 0.05, and the decoder temporal-variance ratio sits near 1.0.}
+\end{figure}
+Two of these have special significance for us. The ratio of the variance of the decoder over time to that of the target indicates how well the decoder tracks the time-varying characteristics of the scene. A "collapsed" model (which produces only the average frame) will produce a ratio of approximately zero.
+
+However, our results show a ratio of approximately 1.0, which shows that our latent variable does indeed track the scene as intended. Also, as stated above, the \texttt{returns/scale} is now above its lower bound, indicating that the critic has started to distinguish between different state spaces. This is an improvement from previous versions of the critic, which viewed all state spaces as being indistinguishable.
+
+In addition, the minimum distance between the robot and the target decreased consistently from 0.198 meters to 0.140 meters. This was the first true policy signal we saw in our work.
+
+\hypertarget{the-actor-saturated-against-its-own-clamp}{%
+\subsection{The Actor Saturated Against Its Own Clamp}\label{the-actor-saturated-against-its-own-clamp}}
+
+The policy did not get better even though it was a good world model. The actor entropy was \textbf{9.93} and it stayed the same over all 5,000 steps.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f06_rev2_actor.png}
+\caption{Actor telemetry, revision 2. Entropy is pinned at 9.93 --- the analytic maximum for the configured action-distribution width --- and remains flat.}
+\end{figure}
+
+The value of this entropy was not randomly chosen. When a Gaussian has a standard deviation of $\sigma$, then the per-dimension differential entropy equals $\tfrac{1}{2}$ log(2$\pi$e $\sigma$\textsuperscript{2}). Since there are 7 action dimensions and the maximum standard deviation $\sigma$\_max = 1.0;
+
+\begin{equation*}
+7 \times \tfrac{1}{2}\log\!\left(2\pi e \times 1.0^{2}\right) = 9.9326
+\end{equation*}
+
+The logged value represents the analytical maximum. The action distribution's width has reached saturation at its upper boundary and remains fixed.
+
+The mechanism: The entropy bonus uses the entropy of the Gaussian before it is squashed. Entropy of a Gaussian increases linearly with increasing standard deviation ($\sigma$). As such, the entropy bonus will consistently push $\sigma$ higher, and the only thing limiting this increase is the clamp. In order for the entropy bonus to be dominant over all other factors, the return gradient with respect to $\sigma$ would need to be very small.
+
+
+Checking magnitudes confirms this. The objective term was
+returns/scale $\approx$ 3/9 $\approx$ 0.33; the entropy term was
+3$\times$10\textsuperscript{-}\textsuperscript{4} $\times$ 9.93 $\approx$ 0.003. The bonus was \textbf{1\% of the loss
+magnitude} and still dominated the width gradient. Supporting evidence: the
+actor gradient norm was approximately 0.02, and the actor loss was \emph{rising} from
+--0.6 to --0.25.
+
+\hypertarget{no-grasping-and-an-empty-reward-signal}{%
+\subsection{No Grasping, and an Empty Reward Signal}\label{no-grasping-and-an-empty-reward-signal}}
+
+Despite the healthy world model and the steady improvement in approach
+distance, revision 2 produced \textbf{no grasps whatsoever}. Grasp, lift and place
+rates were identically zero for the entire run.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.923}{diss_figs/f07_rev2_policy.png}
+\caption{Policy stage rates, revision 2. Grasp, lift and place remain identically zero throughout; the reach rate is low and the minimum distance falls from 0.20 m to 0.14 m.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f08_rev2_buffer.png}
+\caption{Replay buffer statistics, revision 2. The grasp fraction is identically zero across 26,000 transitions.}
+\end{figure}
+
+The replay statistics explain why the reward head could not help. Across 26,000
+stored transitions the grasp fraction was exactly zero, meaning the reward head
+had never observed a reward above the reach term. It had therefore learned that
+reward is approximately 0.002 everywhere, and \texttt{returns/imagined\_reward}
+confirmed this: values of 0.002--0.009 with no discernible structure.
+
+Since the reward head is the sole bridge between the world model and the actor,
+an uninformative reward head means the actor is optimising against a near
+constant. This is the mechanism behind the entropy saturation described in
+Section 5.2.2: with no return gradient to compete against, the entropy bonus ---
+though only 1\% of the loss magnitude --- was the only consistent signal acting on
+the action-distribution width.
+
+Revision 2 therefore ends in a coherent but stuck state: a world model that
+predicts the scene competently, a policy that approaches the object, and no
+mechanism by which the next task stage could be discovered.
+
+\hypertarget{revision-3-precision-fix-and-first-evaluated-grasp}{%
+\section{Revision 3 --- Precision Fix and First Evaluated Grasp}\label{revision-3-precision-fix-and-first-evaluated-grasp}}
+
+\hypertarget{the-change}{%
+\subsection{The Change}\label{the-change}}
+
+The diagnostic investigation reported in Section 6 identified the limiting
+factor as world-model precision and traced it to loss weighting: image
+reconstruction was running at 5--10 against vector reconstruction at 0.05, a
+ratio of roughly 100:1 in favour of a signal dominated by static furniture. The
+principal change was therefore a single configuration value,
+\texttt{vector\_loss\_scale}, raised from 1.0 to 10.0, accompanied by two actor
+corrections --- the entropy estimator changed to the sampled negative
+log-probability of the squashed distribution, and the width cap and learning
+rate adjusted.
+
+\hypertarget{first-grasps}{%
+\subsection{First Grasps}\label{first-grasps}}
+
+Between approximately steps 21,000 and 23,000, revision 3 produced the first
+grasps of the project.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.923}{diss_figs/f25_rev3_firstgrasp.png}
+\caption{Policy stage rates, revision 3. Reach peaks near 58\%; grasp and lift both reach 11\% at approximately step 22,000 before declining.}
+\end{figure}
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Metric & Peak value \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{policy/reach\_rate} & 58\% \\
+\texttt{policy/grasp\_rate} & 11\% \\
+\texttt{policy/lift\_rate} & 11\% \\
+\texttt{episode/return} (max) & 11.8 \\
+\texttt{world\_model/kl} & 1.47 (above the free-bits floor) \\
+\texttt{world\_model/grad\_norm} & 8.5 \\
+\end{longtable}
+
+Two observations. First, grasp and lift trace the same curve, which means every
+grasp led to a lift --- these were not incidental brushes against the object.
+Second, and diagnostically more important, the KL divergence rose to 1.47,
+\emph{above} the free-bits floor of 1.0, for the first time in the project. Section
+5.1 established that a KL pinned at the floor is the signature of a latent that
+has stopped encoding observations; a KL comfortably above it, together with a
+gradient norm of 8.5 rather than 0.01, indicates a world model that is genuinely
+learning from what it sees.
+
+The single configuration change therefore had exactly the predicted effect, and
+by the predicted mechanism.
+
+\hypertarget{subsequent-decline-and-its-cause}{%
+\subsection{Subsequent Decline and Its Cause}\label{subsequent-decline-and-its-cause}}
+
+Performance did not hold. By step 32,000 the reach rate had fallen to 20\% and
+grasp and lift to zero. The telemetry indicates a specific cause.
+
+Critic loss climbed from 1.0 to 1.4 and its gradient norm spiked to 8--10, while
+the return scale doubled from 17 to 40. The ordering is informative: grasp
+rewards entered the buffer at step 21,000, the critic destabilised from step
+25,000, and policy performance fell from step 25,000 onward.
+
+Robosuite's grasp reward is 0.0875 per step against an idle reward of
+approximately 0.002 --- a 44-fold jump. After 21,000 steps of learning that all
+states are worth roughly the same small amount, the critic had to revise a
+subset upward by that factor, and the revision propagates to every state from
+which a grasp is reachable. Since the actor optimises return \emph{divided by} the
+return scale, the scale doubling halved the actor's effective gradient at
+precisely the moment the value landscape was changing fastest.
+
+Underlying this is a data problem quantified in Section 6.7: the buffer
+contained approximately 28 grasp transitions, and that count did not increase
+after step 21,000. The declining grasp percentage in the logs reflects a growing
+denominator rather than lost data. Discovery had occurred; consolidation had
+not.
+
+\hypertarget{extended-training}{%
+\subsection{Extended Training}\label{extended-training}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.923}{diss_figs/f14_rev3_curve.png}
+\caption{Training progress, revision 3. The 20-episode rolling mean recovers from a post-discovery trough near episode 52 to exceed its earlier peak by episode 95.}
+\end{figure}
+
+Training was resumed and continued to approximately 81,000 steps. The learning
+curve shows a rise to approximately 4.3, a fall to 1.4 following the first grasp
+discovery, and a recovery to approximately 4.6 --- exceeding the earlier peak. The
+instability was therefore transient rather than terminal, which was not apparent
+at the time of the decline.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f15_rev3_policy.png}
+\caption{Policy stage rates over the extended run. The reach rate stabilises between 30\% and 40\% across a 24,000-step window.}
+\end{figure}
+
+The reach rate climbed from zero to a stable 30--40\% and held there over 24,000
+steps. Unlike the brief windows in earlier revisions, this estimate is computed
+from a filled 20-episode rolling window and is therefore a genuine measurement
+rather than an artefact of a sparsely populated buffer.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f16_rev3_worldmodel.png}
+\caption{World-model diagnostics over the extended run. A transient excursion near step 63,000 resolves within 2,000 steps; baseline behaviour is otherwise stable.}
+\end{figure}
+
+The world model shows one clean event near step 63,000 --- vector reconstruction
+spiking to 0.14, both entropies rising, the variance ratio peaking at 3.4 ---
+which fully resolves within roughly 2,000 steps. This is consistent with the
+raised action-distribution width pushing more exploratory, out-of-distribution
+actions into the buffer for a short window. The model absorbed the shift and
+recovered, which is itself evidence that the representation was robust by this
+point.
+
+\hypertarget{evaluation-at-55000-steps}{%
+\subsection{Evaluation at 55,000 Steps}\label{evaluation-at-55000-steps}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.831}{diss_figs/f18_eval_55k.png}
+\caption{Evaluation output at 55,000 steps, showing agent and random baseline results with the automated verdict.}
+\end{figure}
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule\noalign{}
+Measure & Agent & Random & Comparison \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Episode return & 4.411 $\pm$ 4.583 & 0.973 $\pm$ 1.683 & 4.53$\times$, \emph{p} = 0.004 \\
+Mean min. distance & 0.1002 m & 0.2010 m & 2.01$\times$ closer \\
+Best min. distance & 0.0175 m & 0.0561 m & 3.21$\times$ closer \\
+Reach rate & 20\% (4/20) & 0\% (0/20) & \emph{p} = 0.106 \\
+Grasp / lift rate & 0\% & 0\% & --- \\
+Max reward observed & 0.0827 & 0.0492 & below grasp level \\
+Gripper closure rate & 1.6\% & 24.9\% & 16$\times$ less \\
+\end{longtable}
+
+The return difference is statistically significant with a large effect size
+(Cohen's \emph{d} = 1.00). The reach rate at 4/20 is suggestive but does not reach
+significance at n = 20.
+
+The gripper closure figure is the most informative entry and is analysed in
+Section 6.4. The random baseline value of 24.9\% matches the theoretical 25.0\% for
+uniform sampling on {[}--1, 1{]}, validating the measurement.
+
+\hypertarget{evaluation-at-80000-steps}{%
+\subsection{Evaluation at 80,000 Steps}\label{evaluation-at-80000-steps}}
+
+Continued training to 80,000 steps produced the project's first grasp and lift
+under deterministic evaluation.
+
+\begin{quote}
+\textbf{{[}FIGURE TO INSERT --- evaluation console output at 80,000 steps.{]}} Insert
+your terminal screenshot showing \texttt{grasp\_rate\ 5.0\%\ (1/20)}, \texttt{lift\_rate\ 5.0\%\ (1/20)} and \texttt{max\ reward\ seen\ 0.3510}. All values from it are tabulated below.
+\end{quote}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2500}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Measure
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Agent
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Random
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Comparison
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Episode return & 4.777 $\pm$ 4.001 & 0.973 $\pm$ 1.683 & \textbf{4.91$\times$, \emph{p} = 0.0006} \\
+Cohen's \emph{d} & --- & --- & \textbf{1.24} \\
+Mean min. distance & 0.1027 m & 0.2010 m & 1.96$\times$ closer \\
+Best min. distance & 0.0273 m & 0.0561 m & 2.05$\times$ closer \\
+Reach rate & \textbf{25\% (5/20)} & 0\% (0/20) & \textbf{\emph{p} = 0.047} \\
+Grasp rate & 5\% (1/20) & 0\% (0/20) & \emph{p} = 1.00 \\
+Lift rate & 5\% (1/20) & 0\% (0/20) & \emph{p} = 1.00 \\
+Max reward observed & \textbf{0.3510} & 0.0492 & \textbf{above grasp level} \\
+Gripper closure rate & 0.1\% & 24.9\% & 249$\times$ less \\
+\end{longtable}
+
+The hardest evidence is the maximum reward observed. Robosuite's staged reward
+places a completed grasp at 0.35, rising toward 0.5 as the object is lifted. At
+55,000 steps the maximum observed was 0.0827 --- below the grasp level, a
+near-miss. At 80,000 steps it reached 0.3510, above the grasp threshold and
+entering the lift regime. This is \textbf{4.2 times higher than anything previously
+recorded} and is confirmed by the reward function itself rather than by an
+auxiliary metric.
+
+Grasp and lift are the same episode: the grasp led to a lift.
+
+Statistical honesty requires a clear statement here. The reach rate of 5/20 is
+now significant at \emph{p} = 0.047. The grasp and lift rates rest on a single
+episode, with a 95\% Jeffreys interval of {[}0.5\%, 21.1\%{]} and Fisher \emph{p} = 1.00.
+The correct claim is that grasping and lifting were \emph{achieved} under
+deterministic evaluation --- an existence proof --- not that a 5\% rate has been
+established.
+
+\hypertarget{the-gripper-paradox}{%
+\subsection{The Gripper Paradox}\label{the-gripper-paradox}}
+
+Between the two evaluations the gripper closure rate \emph{fell} by a factor of 16,
+from 1.6\% to 0.1\%, while grasping went from impossible to achieved.
+
+At 0.1\% of 500 steps, the policy commands approximately 0.5 closures per episode
+--- roughly 10 across the 20 evaluation episodes --- and one produced a grasp, a hit
+rate near 10\% per closure command. The policy had not learned to close \emph{more}.
+It had learned \emph{when} to close. This is a qualitatively different and
+substantially better behaviour, and it is analysed mechanistically in Section
+6.4.
+
+\hypertarget{training-divergence-at-84000-steps}{%
+\section{Training Divergence at 84,000 Steps}\label{training-divergence-at-84000-steps}}
+
+The final run terminated in numerical divergence, which is reported here in full
+because it constrains what can be claimed and because the failure signature is
+itself instructive.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f19_divergence_actor.png}
+\caption{Actor telemetry through the divergence. Entropy crashes to --18 and then flatlines at a constant value; the gradient norm falls to zero.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f21_divergence_wm.png}
+\caption{World-model telemetry through the divergence. Reconstruction spikes from approximately 10 to 2,000 and vector reconstruction from 0.02 to 4.1.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.831}{diss_figs/f20_divergence_nan.png}
+\caption{Non-finite update counter. The value rises from zero to over 100,000 beginning near step 85,000.}
+\end{figure}
+
+The sequence was:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Step $\sim$84,000:} the world model diverged. Reconstruction spiked from $\sim$10 to
+  \textbf{2,000} (a factor of 200); vector reconstruction from 0.02 to 4.1; the
+  decoder variance ratio reached 135 against a normal value near 1.
+\item
+  \textbf{Steps $\sim$84,000--85,000:} the actor followed. Entropy crashed to --18,
+  indicating the action-distribution width had collapsed toward its floor, then
+  flatlined at a constant. The actor loss froze; the gradient norm fell to zero.
+\item
+  \textbf{Step $\sim$85,000 onward:} the non-finite update counter climbed past 100,000.
+  That counter increments only when the world-model loss is non-finite and the
+  entire batch is discarded. At 32 updates per environment step, this
+  represents approximately 3,100 environment steps during which nothing was
+  learned.
+\end{enumerate}
+
+The flat entropy and floored return scale are not converged values; they are the
+last finite values logged before the guard began rejecting every batch. The
+existing \texttt{safe()} guard catches non-finite losses but does not \emph{recover} --- once
+the parameters contain non-finite values, every subsequent batch fails
+identically, which is why the counter climbs linearly rather than spiking and
+settling.
+
+The 80,000-step checkpoint predates this event and is unaffected. All results in
+Section 5.3.6 derive from it.
+
+\hypertarget{extended-training-to-128000-steps-grasping-consolidates}{%
+\section{Extended Training to 128,000 Steps --- Grasping Consolidates}\label{extended-training-to-128000-steps-grasping-consolidates}}
+
+Training was resumed from the 80,000-step checkpoint with the world-model
+gradient clip reduced and mixed precision disabled, and continued to
+approximately 128,000 environment steps. This run produced the strongest result
+of the project and, as Section 6.7 discusses, overturns one of the conclusions
+drawn from the earlier data.
+
+\hypertarget{the-replay-buffer-crossed-a-threshold}{%
+\subsection{The Replay Buffer Crossed a Threshold}\label{the-replay-buffer-crossed-a-threshold}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f26_128k_buffer.png}
+\caption{Replay buffer statistics to 128,000 steps. The grasp fraction, flat for the preceding 70,000 steps, rises in discrete steps from 0.030\% to 0.155\%.}
+\end{figure}
+
+The \texttt{buffer/grasp\_pct} curve is the single most important plot in this
+dissertation. For the entire window from step 21,000 to step 91,000 the implied
+grasp count was static at approximately 28 transitions, and the declining
+percentage reflected only a growing denominator. From step 98,000 onward it
+rises in discrete jumps:
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule\noalign{}
+Step & \texttt{grasp\_pct} & Buffer size & Implied grasp transitions \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+88,000 & 0.030\% & 93,000 & 28 \\
+98,000 & 0.057\% & 103,000 & 59 \\
+104,000 & 0.100\% & 110,000 & 109 \\
+112,000 & 0.103\% & 120,000 & 124 \\
+118,000 & 0.152\% & 128,000 & 195 \\
+128,000 & 0.155\% & 138,000 & \textbf{214} \\
+\end{longtable}
+
+The count rose from 28 to approximately \textbf{214, a factor of 7.7}. The step
+structure of the curve is itself informative: each jump corresponds to a single
+successful episode contributing a contiguous block of grasp-level transitions,
+and the jumps become both larger and more frequent as the run proceeds.
+
+The effect on training is direct:
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+& At 91,000 steps & At 128,000 steps \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Grasp fraction of buffer & 0.031\% & 0.155\% \\
+Expected grasps per 1,024-transition batch & 0.32 & \textbf{1.59} \\
+Probability a batch contains none & 73\% & \textbf{20\%} \\
+\end{longtable}
+
+The reward head now observes a successful transition in roughly four batches out
+of five, against one in four previously. Section 6.7 argued that 28 transitions
+were too few for the reward head to generalise from; this run shows what happens
+once that constraint is relieved.
+
+\hypertarget{sustained-grasping-and-lifting}{%
+\subsection{Sustained Grasping and Lifting}\label{sustained-grasping-and-lifting}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.923}{diss_figs/f27_policy.png}
+\caption{Policy stage rates to 128,000 steps. Grasp and lift rise from zero at step 104,000 to a sustained 10--15\%, peaking at 15\%. The reach rate ranges from 20\% to 52\%.}
+\end{figure}
+
+Grasp and lift rates leave zero at approximately step 104,000 and thereafter
+hold between 10\% and 15\%, peaking at 15\%. This is qualitatively different from
+every previous observation of grasping in this project, which consisted of a
+transient peak at 22,000 steps that decayed within 4,000 steps, and a single
+episode under evaluation at 80,000 steps.
+
+The two curves are identical throughout, confirming that every grasp led to a
+lift.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f28_episode.png}
+\caption{Episode-level outcomes. \texttt{episode/stage} now reaches 3 (lifted), against a previous maximum of 1 (reached). Peak episode return reaches approximately 30.}
+\end{figure}
+
+\texttt{episode/stage} is the clearest single indicator. Throughout all earlier runs it
+alternated between 0 and 1 --- the agent either failed to approach or approached
+and stopped. From step 104,000 it reaches \textbf{3} repeatedly, meaning the can was
+grasped and lifted clear of the table. Peak episode return reaches approximately
+\textbf{30}, against 11.8 at the revision-3 peak and 21.4 in the 55,000-step
+evaluation.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.954}{diss_figs/f29_events.png}
+\caption{Discrete task events. \texttt{episode/grasped} and \texttt{episode/lifted} fire on the same episodes, approximately seven times between steps 104,000 and 128,000.}
+\end{figure}
+
+The binary event traces confirm the rate estimate independently. Roughly seven
+grasp events occur across the 48 episodes in that window, an episode-level rate
+of approximately 15\%, consistent with the rolling-window measurement.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.923}{diss_figs/f30_rolling.png}
+\caption{Rolling return to 128,000 steps. The 20-episode mean rises from 2.6 to a peak of 5.6.}
+\end{figure}
+
+The rolling return rises from 2.6 at step 90,000 to a peak of \textbf{5.6} near step
+118,000 --- more than double, and well above the 4.6 peak of the earlier run. The
+rise coincides with the grasp-count increase rather than preceding it.
+
+\hypertarget{learning-remained-stable}{%
+\subsection{Learning Remained Stable}\label{learning-remained-stable}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f31_wm_core.png}
+\caption{World-model core diagnostics to 128,000 steps. The KL sits near 1.5, above the free-bits floor of 1.0, with excursions to 4.5 near step 114,000.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.954}{diss_figs/f35_wm6.png}
+\caption{World-model reconstruction and entropy diagnostics. The decoder temporal-variance ratio stays near 1.0 with a single excursion to 3.0.}
+\end{figure}
+
+The world model remained healthy for the whole 47,000-step extension. The KL
+divergence sits near 1.5 --- comfortably above the free-bits floor of 1.0, and
+therefore not exhibiting the collapse signature diagnosed in Section 5.1 --- with
+transient excursions to 4.5 near step 114,000 that resolve without intervention.
+The gradient norm shows one initial clipping spike at 1,050 (the clip is 1,000)
+and thereafter sits between 20 and 50, with a single 420 excursion. Neither the
+200-fold reconstruction blow-up nor the non-finite cascade that terminated the
+previous run recurred; the reduced gradient clip and disabled mixed precision
+appear to have been sufficient.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f32_actor.png}
+\caption{Actor telemetry to 128,000 steps. Entropy declines steadily from +3 to approximately --2, indicating a sharpening rather than saturating policy.}
+\end{figure}
+
+Actor entropy declines from approximately +3 to approximately --2 over the run.
+Under the squashed negative-log-probability estimator adopted in revision 3,
+negative values indicate a policy concentrated relative to the uniform
+distribution. This is the signature of a policy \emph{sharpening} around a discovered
+behaviour, and is precisely the opposite of the saturation at the analytic
+maximum of 9.93 documented in Section 5.2.2. The actor gradient norm remains
+small, near 0.2, with occasional spikes to 7.
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.862}{diss_figs/f34_critic.png}
+\caption{Critic telemetry. Loss rises from 1.0 to a stationary 1.2--1.4 with gradient-norm spikes to 14.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f33_returns.png}
+\caption{Imagined return statistics. The return scale rises from 7.5 to a peak of 19 near step 108,000 before settling near 10.}
+\end{figure}
+
+The critic is the least settled component. Its loss rises from 1.0 to a
+stationary band of 1.2--1.4, and gradient-norm spikes reach 14. The return scale
+roughly doubles, from 7.5 to a peak of 19 near step 108,000, before declining to
+approximately 10. This is the same value-revision dynamic diagnosed in Section
+5.3.3 --- the critic adjusting to reward magnitudes an order above what it had
+previously seen --- but on this occasion it did not destabilise the policy. The
+difference is that grasps were now arriving continuously rather than as a single
+isolated cluster, so the revision was gradual rather than abrupt.
+
+\hypertarget{approach-precision-also-improved}{%
+\subsection{Approach Precision Also Improved}\label{approach-precision-also-improved}}
+
+\texttt{episode/min\_distance} reaches 0.02--0.03 m at its best, against 0.05--0.15 m in
+the earlier run. The agent is now closing to within roughly half the 0.05 m
+grasp tolerance, which is a necessary precondition for the grasp rate observed
+and is consistent with the precision analysis of Section 6.5.
+
+\hypertarget{summary-of-the-extended-run}{%
+\subsection{Summary of the Extended Run}\label{summary-of-the-extended-run}}
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+Metric & To 91,000 steps & To 128,000 steps \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Grasp transitions in buffer & 28 (static) & \textbf{214} \\
+\texttt{policy/grasp\_rate} & 0\% & \textbf{10--15\% sustained} \\
+\texttt{policy/lift\_rate} & 0\% & \textbf{10--15\% sustained} \\
+\texttt{policy/reach\_rate} & 30--40\% & 20--52\%, peak 52\% \\
+Maximum \texttt{episode/stage} & 1 (reached) & \textbf{3 (lifted)} \\
+Maximum \texttt{episode/return} & 11.8 & \textbf{$\sim$30} \\
+\texttt{reward/rolling\_return} peak & 4.6 & \textbf{5.6} \\
+Best \texttt{episode/min\_distance} & 0.05 m & \textbf{0.02 m} \\
+World model & healthy & healthy, no divergence \\
+\end{longtable}
+
+\newpage
+
+\hypertarget{diagnostic-investigation}{%
+\chapter{Diagnostic Investigation}\label{diagnostic-investigation}}
+
+This section is the methodological core of the dissertation. Section 5
+established \emph{that} the system behaved in particular ways; this section
+establishes \emph{why}, and documents the instruments built to find out.
+
+\hypertarget{why-standard-telemetry-was-insufficient}{%
+\section{Why Standard Telemetry Was Insufficient}\label{why-standard-telemetry-was-insufficient}}
+
+Standard reinforcement learning logging reports loss, gradient norm, entropy and
+return. Across two failed revisions, these quantities indicated reliably that
+something was wrong and never once indicated what.
+
+Revision 1 is the clearest case. The loss was flat at 0.645 and the gradient norm
+at 0.01. Both facts are consistent with a converged model, an unlearnable task,
+a vanishing-gradient pathology, a broken optimiser, or a mis-scaled loss term.
+Distinguishing between these required decomposing the number, which is not
+something the logging did. Once decomposed, the answer was immediate and
+required no further experiments.
+
+Revision 2 is the more instructive case, because the telemetry was actively
+misleading. The world model looked healthy by every logged measure. The problem
+lay in a quantity nobody was logging: the accuracy of imagination \emph{without} the
+camera, which is the only kind of imagination the actor ever trains on.
+
+\hypertarget{instrument-1-open-loop-imagination-visualisation}{%
+\section{Instrument 1 --- Open-Loop Imagination Visualisation}\label{instrument-1-open-loop-imagination-visualisation}}
+
+\hypertarget{design}{%
+\subsection{Design}\label{design}}
+
+The critical observation is that the actor never trains on posterior
+reconstructions. It trains on prior-only rollouts, generated by \texttt{img\_step} with
+no observation input. Standard reconstruction visualisation --- which supplies the
+camera at every step --- therefore validates something the actor never uses.
+
+The instrument conditions the RSSM on K observed frames using \texttt{obs\_step}, then
+rolls forward T -- K further steps using \texttt{img\_step} alone, decoding each latent.
+Frames are displayed in four rows: ground truth, posterior reconstruction,
+open-loop imagination, and an error heatmap, with observed and imagined frames
+distinguished by border colour.
+
+\hypertarget{results-at-revision-2}{%
+\subsection{Results at Revision 2}\label{results-at-revision-2}}
+
+The finding was unambiguous and had been invisible in the loss curves. The
+static scene --- table, bins, background, and the can itself --- was rendered
+sharply and stably throughout a 34-step rollout. The imagined \emph{arm}, however,
+barely moved, remaining a pale blob near its starting position while the real
+arm swept down to the table and across to the bins.
+
+The error map localised this precisely: near-zero error everywhere except a
+bright plume exactly where the arm was or should have been, growing steadily
+with horizon.
+
+\hypertarget{results-at-revision-3}{%
+\subsection{Results at Revision 3}\label{results-at-revision-3}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f12_openloop_seq2.png}
+\caption{Open-loop rollout after the precision fix, sequence 2. Green borders mark observed frames; red marks imagined frames with no camera input. The dreamed arm tracks the real arm's descent through 39 steps.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f13_openloop_seq0.png}
+\caption{Open-loop rollout, sequence 0. The static scene remains sharp while error concentrates on the arm and, more faintly, on the target object.}
+\end{figure}
+
+After the loss reweighting the dreamed arm moves and tracks the real trajectory
+through all 40 steps with no camera after frame 5. This is a qualitative
+transformation from the frozen arm of revision 2.
+
+One residual defect is visible and is analysed further in Section 6.5: the red
+can is crisp in ground truth but appears as a faint smudge in reconstruction and
+nearly vanishes in imagination beyond roughly step 30. The model learned the
+7-DoF arm well and the small target object poorly --- which is precisely the
+asymmetry that permits reaching while preventing grasping.
+
+\hypertarget{instrument-2-planning-horizon-validity}{%
+\section{Instrument 2 --- Planning Horizon Validity}\label{instrument-2-planning-horizon-validity}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.862}{diss_figs/f10_horizon.png}
+\caption{Open-loop prediction error at increasing horizons from identical initial conditions.}
+\end{figure}
+
+Every model-based planner must answer one question before any control result is
+meaningful: how far ahead can the model be trusted? This instrument fixes an
+initial condition from five observed frames and integrates forward 1, 5, 10 and
+20 steps with no feedback, comparing against ground truth.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.2000}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Horizon
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Revision 2 (22k)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Revision 3 (55k)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Improvement
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Robot time
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+H = 1 & 0.0060 & \textbf{0.0025} & 2.40$\times$ & 0.05 s \\
+H = 5 & 0.0099 & \textbf{0.0047} & 2.11$\times$ & 0.25 s \\
+H = 10 & 0.0129 & \textbf{0.0113} & 1.14$\times$ & 0.50 s \\
+H = 20 & 0.0200 & \textbf{0.0128} & 1.56$\times$ & 1.00 s \\
+\end{longtable}
+
+Root-mean-square pixel error at H = 20 fell from 36 to 29 intensity levels out
+of 255. Error grows by a factor of 5.1 from H=1 to H=20 but remains bounded
+rather than diverging; the scene stays coherent throughout. The actor trains at
+H = 15, corresponding to 0.75 s of robot time at 20 Hz control.
+
+The growth is front-loaded: a factor of 4.5 between H=1 and H=10, then
+almost flat from H=10 to H=20 (0.0113 to 0.0128). Most error accumulates
+during the fast descent phase and then stabilises --- a physically plausible
+pattern rather than numerical drift.
+
+\hypertarget{instrument-3-latent-activity-and-a-refuted-hypothesis}{%
+\section{Instrument 3 --- Latent Activity, and a Refuted Hypothesis}\label{instrument-3-latent-activity-and-a-refuted-hypothesis}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.954}{diss_figs/f11_latents.png}
+\caption{Latent activity. All 32 categorical variables are active, changing category on 18--49\% of timesteps.}
+\end{figure}
+
+At one point the posterior entropy read approximately 0.05 nats against a
+ceiling of log(32) = 3.466, and this was taken as evidence of renewed latent
+collapse. The instrument refuted it: all 32 latent variables were active,
+changing category on between 18\% and 49\% of timesteps.
+
+The resolution is that low entropy means each latent is \emph{confidently} one-hot at
+each individual step, while \emph{which} category it selects changes constantly. That
+is high information content, not collapse. Confidence and informativeness are
+distinct properties, and conflating them cost an investigative detour worth
+recording as a methodological caution.
+
+\hypertarget{instrument-4-the-action-response-test}{%
+\section{Instrument 4 --- The Action-Response Test}\label{instrument-4-the-action-response-test}}
+
+\hypertarget{the-hypothesis-and-its-prediction}{%
+\subsection{The Hypothesis and Its Prediction}\label{the-hypothesis-and-its-prediction}}
+
+Three converging lines of visual evidence supported a specific hypothesis: that
+the world model was \emph{action-blind}, meaning imagination did not respond to the
+actions fed into it. The evidence was the frozen imagined arm, the error map
+localised entirely on the arm, and the saturated actor entropy. If true, the
+causal chain would be:
+
+\begin{equation*}
+\frac{\partial(\text{imagined latent})}{\partial(\text{action})} \approx 0 \;\Rightarrow\; \frac{\partial(\text{imagined return})}{\partial(\text{action})} \approx 0 \;\Rightarrow\; \text{entropy bonus is the only gradient on } \sigma
+\end{equation*}
+
+which would explain the entropy plateau exactly. The hypothesis made a
+quantitative prediction: the ratio of the action gradient to the latent gradient
+should be near 10\textsuperscript{-}\textsuperscript{3}.
+
+\hypertarget{the-instrument}{%
+\subsection{The Instrument}\label{the-instrument}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f09_action_response.png}
+\caption{Action-response test. Test A measures open-loop end-effector tracking; Test B measures outcome spread across differing action sequences; Test C measures the actor's gradient directly.}
+\end{figure}
+
+Three measurements were made. \textbf{Test A} rolls forward open-loop using the real
+recorded actions while decoding the proprioception vector, comparing predicted
+against true end-effector position per axis and per observation block. \textbf{Test B}
+fans out 64 differing action sequences from a single latent --- including the
+$\pm$1 extremes, making it the most generous possible test --- and measures the
+spread of resulting outcomes, compared against real per-step end-effector
+movement measured from the buffer. \textbf{Test C} differentiates the imagined
+$\lambda$-return with respect to the action tensor, which is exactly the
+quantity the actor's dynamics-backpropagation path optimises.
+
+\hypertarget{result-the-hypothesis-was-false}{%
+\subsection{Result: The Hypothesis Was False}\label{result-the-hypothesis-was-false}}
+
+\begin{equation*}
+\left|\partial R/\partial a\right| = 0.82, \qquad \left|\partial R/\partial h\right| = 1.05, \qquad \text{ratio} = 0.78
+\end{equation*}
+
+These are the same order of magnitude. The predicted signature of an
+action-blind model was a ratio below 10\textsuperscript{-}\textsuperscript{3}; the measured value was 0.78. The
+actor was receiving a fully usable learning signal.
+
+Test B agreed independently: spread across differing actions reached 0.065 m at
+H = 15, against 0.016 m of real end-effector movement per step --- outcomes four
+real steps apart. The trajectory panel shows genuine fan-out from the starting
+cluster.
+
+This is worth stating plainly as a methodological outcome rather than an
+embarrassment. A hypothesis was formed from converging evidence, an instrument
+was built specifically to test it, and the instrument falsified it. The value of
+the exercise is that it redirected the remedy: from \emph{``the model is blind''}, which
+would have suggested architectural changes, to \emph{``the model is imprecise''}, which
+suggested loss reweighting --- the change that ultimately produced grasping.
+
+\hypertarget{what-the-test-found-instead}{%
+\subsection{What the Test Found Instead}\label{what-the-test-found-instead}}
+
+Test A revealed a precision limit. Open-loop end-effector error at H = 15 was
+approximately 0.125 m, against a task reach threshold of 0.050 m --- a deficit of
+a factor of 2.5.
+
+The per-block breakdown localises it further:
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Observation block & Mean absolute error \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{joint\_pos} & \textbf{0.60 rad} \\
+\texttt{eef\_quat} & 0.15 \\
+\texttt{object-state} & 0.14 \\
+\texttt{eef\_pos} & 0.065 m \\
+\texttt{gripper\_qpos} & 0.005 \\
+\end{longtable}
+
+Joint angles span roughly $\pm$2.9 rad, so an error of 0.60 rad is a large
+fraction of the range. Per-axis tracking showed x and z following the true
+trajectory closely while y diverged entirely --- the model tracked two of three
+spatial dimensions and lost the third.
+
+The cause was traced to loss weighting. Training logs showed image reconstruction
+at 5--10 against vector reconstruction at 0.05 --- the image term carrying roughly
+\textbf{100 times the weight} of the vector term. But the image is dominated by
+static table, bins and background, while the 30-dimensional vector contains every
+number describing the arm and the object. The model was weighting scenery
+100:1 over the thing being controlled.
+
+This is the same \emph{class} of error as revision 1 --- a prediction term scaled so far
+below the others that the optimiser rationally ignores what it encodes ---
+displaced by exactly one term.
+
+\hypertarget{instrument-5-plan-versus-execution}{%
+\section{Instrument 5 --- Plan Versus Execution}\label{instrument-5-plan-versus-execution}}
+
+\hypertarget{design-1}{%
+\subsection{Design}\label{design-1}}
+
+The instruments above measure how well the model predicts \emph{recorded} action
+sequences. The question trajectory planning actually asks is different: when the
+agent imagines a plan of its own choosing, does executing that plan produce what
+was imagined?
+
+The instrument answers this by exploiting the simulator's state interface:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Drive the real environment for K steps, updating the RSSM with \texttt{obs\_step}.
+\item
+  Snapshot the MuJoCo state via \texttt{sim.get\_state()}.
+\item
+  \textbf{Imagine:} from the current latent, let the \emph{actor} select its own actions
+  and roll forward H steps with \texttt{img\_step} only. Record the imagined actions,
+  decoded frames, and predicted end-effector positions.
+\item
+  Restore the state via \texttt{sim.set\_state()}.
+\item
+  \textbf{Execute} the imagined action sequence open-loop in the real simulator.
+\end{enumerate}
+
+Because step 4 restores the initial condition exactly, the only difference
+between the two rollouts is the world model itself. State restoration was
+verified to reproduce trajectories bit-for-bit before the instrument was relied
+upon.
+
+\hypertarget{results-1}{%
+\subsection{Results}\label{results-1}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f22_traj_seq0.png}
+\caption{Plan versus execution, sequence 0. Real trajectory in blue, imagined plan dashed red, observed context in grey. Divergence oscillates between 0.065 and 0.105 m against a 0.05 m tolerance.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f23_traj_seq1.png}
+\caption{Plan versus execution, sequence 1. Divergence grows from 0.113 m to 0.190 m over the fifteen-step horizon.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.985}{diss_figs/f24_traj_seq3.png}
+\caption{Plan versus execution, sequence 3. The real path in the x--y plane is smooth and short; the imagined path is erratic and occupies a different region entirely.}
+\end{figure}
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule\noalign{}
+Sequence & Divergence at step 1 & at step 15 & Range \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0 & 0.087 m & 0.091 m & 0.065--0.105 \\
+1 & 0.113 m & 0.190 m & 0.113--0.202 \\
+3 & 0.119 m & 0.104 m & 0.086--0.123 \\
+\textbf{Mean} & \textbf{0.106 m} & \textbf{0.128 m} & --- \\
+\end{longtable}
+
+The qualitative picture is consistent across all three: the real end-effector
+path is smooth and short, while the imagined path is erratic and frequently
+occupies a different region of the workspace entirely.
+
+\hypertarget{the-central-decomposition}{%
+\subsection{The Central Decomposition}\label{the-central-decomposition}}
+
+The mean divergence at step 15 is 0.128 m, which corroborates the 0.125 m figure
+obtained independently in Section 6.5.4. But the more informative number is the
+divergence at step \textbf{1}: 0.106 m.
+
+\begin{equation*}
+\underbrace{0.106\,\mathrm{m}}_{\text{present at step 1}} \;\text{of}\; \underbrace{0.128\,\mathrm{m}}_{\text{total at } H=15} \;\Longrightarrow\; \mathbf{83\%}
+\end{equation*}
+
+Only 0.022 m --- \textbf{17\%} of the total --- accumulates across the entire fifteen-step
+horizon. The error grows by a factor of only 1.21 over the planning horizon.
+
+This decomposition changes the interpretation of the limitation substantially.
+The model is \emph{not} primarily failing to predict dynamics; its dynamics prediction
+adds only 22 mm of error over 0.75 s of robot motion, which for a learned model
+is respectable. The model is failing to know where the arm \emph{is}. The error is
+already 2.1 times the grasp tolerance at the very first imagined step, before any
+dynamics have been integrated.
+
+The limitation is therefore one of \textbf{latent state estimation}, not dynamics
+prediction. To the author's knowledge this decomposition has not previously been
+reported in this form for a DreamerV3-class model, and it has a direct practical
+implication: effort spent on longer-horizon dynamics accuracy would address 17\%
+of the problem, whereas effort spent on the fidelity of the posterior encoding ---
+higher observation resolution, a wrist camera, or an auxiliary state-estimation
+loss --- would address 83\%.
+
+\hypertarget{reward-head-calibration}{%
+\subsection{Reward Head Calibration}\label{reward-head-calibration}}
+
+The same instrument compares predicted against received reward along the executed
+trajectory.
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule\noalign{}
+Sequence & Mean predicted & Mean received & Ratio \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0 & 0.0170 & 0.0005 & 34.0$\times$ \\
+1 & 0.0170 & 0.0040 & 4.2$\times$ \\
+3 & 0.0130 & 0.0050 & 2.6$\times$ \\
+\textbf{Mean} & \textbf{0.0157} & \textbf{0.0032} & \textbf{4.9$\times$} \\
+\end{longtable}
+
+The reward head systematically \textbf{over-predicts by roughly a factor of five}. The
+actor is therefore optimising against an inflated estimate of what its plans are
+worth --- it believes its trajectories are better than they are. Combined with the
+state-estimation offset, this compounds: the actor plans toward a state it
+mislocates by 0.106 m, and over-values the outcome by a factor of five.
+
+\hypertarget{instrument-6-replay-composition}{%
+\section{Instrument 6 --- Replay Composition}\label{instrument-6-replay-composition}}
+
+\begin{figure}[htbp]
+\centering
+\figbox{0.923}{diss_figs/f17_rev3_buffer.png}
+\caption{Replay buffer statistics, revision 3. The grasp fraction declines while buffer size grows, indicating a constant absolute count.}
+\end{figure}
+
+The final instrument is arithmetic on the buffer contents rather than a plot, but
+it produced one of the clearer findings.
+
+\begin{verbatim}
+grasp transitions in buffer:  28   (unchanged since step ~21,000)
+buffer size:                  91,000
+fraction:                     0.031%
+batch = 16 x 64             = 1,024 transitions
+expected grasps per batch   = 0.31
+P(a batch contains none)    ~ 73%
+\end{verbatim}
+
+Roughly three-quarters of gradient updates contain no successful transition at
+all. The reward head is being asked to learn what success looks like from a
+signal absent from most of its training batches.
+
+The converse is equally problematic. At a train ratio of 32, each environment
+step draws 32,768 transitions, so each of the 28 grasp frames is replayed
+approximately 0.36 times per environment step --- roughly 720 repetitions per
+2,000 steps. These originate from about three episodes and therefore encode three
+specific object positions and approach angles. The reward head can memorise those
+particular images without generalising the concept of a successful grasp.
+
+\hypertarget{this-analysis-predicted-a-threshold-and-the-threshold-was-crossed}{%
+\subsection{This Analysis Predicted a Threshold, and the Threshold Was Crossed}\label{this-analysis-predicted-a-threshold-and-the-threshold-was-crossed}}
+
+The analysis above was performed on data to 91,000 steps, at which point the
+grasp count had been static for 70,000 steps. The conclusion drawn at the time
+was that sparse-reward discovery is \emph{not} self-sustaining --- that discovery and
+consolidation are separate problems, and that solving the first does not solve
+the second.
+
+The extended run reported in Section 5.5 requires that conclusion to be
+corrected, and the correction is instructive.
+
+Consolidation did occur. Between steps 98,000 and 128,000 the grasp count rose
+from 28 to approximately 214, the expected number of grasp transitions per batch
+rose from 0.32 to 1.59, and the proportion of batches containing no successful
+transition fell from 73\% to 20\%. Grasp and lift rates rose from zero to a
+sustained 10--15\%.
+
+What the earlier analysis got right was the \emph{mechanism}: the binding constraint
+was indeed the density of successful transitions in the replay distribution, and
+the quantity that mattered was indeed the expected number of grasps per batch
+rather than the grasp percentage. What it got wrong was the conclusion drawn
+from a finite observation window. Thirty thousand further steps were sufficient
+to cross the threshold the analysis itself had identified.
+
+The corrected statement is therefore narrower and, being falsifiable in the same
+way, more useful:
+
+\begin{quote}
+Sparse-reward discovery consolidates only once discovered events reach
+sufficient density in the replay distribution that a typical training batch
+contains one. Below that density the reward head cannot generalise from them,
+and progress stalls in a way that is easily mistaken for a hard limit.
+\end{quote}
+
+In this system the transition occurred between approximately 0.3 and 1.6
+expected grasps per batch. Whether that threshold generalises is an open
+question and a natural subject for further work; the measurement required to
+test it is inexpensive, being nothing more than the product of the buffer's
+success fraction and the batch size.
+
+This episode is also a methodological caution worth recording. A metric that has
+been flat for 70,000 steps invites the inference that it is structurally stuck.
+The inference was wrong, and only additional compute distinguished a slow
+process from a halted one.
+
+\hypertarget{the-sustained-closure-analysis}{%
+\section{The Sustained-Closure Analysis}\label{the-sustained-closure-analysis}}
+
+A final piece of analysis explains the gripper behaviour reported in Section
+5.3.5 and, retrospectively, much of the difficulty with grasping.
+
+A grasp requires the gripper to be held closed for several consecutive steps
+while correctly positioned. Exploration noise, however, is sampled
+\emph{independently} at each step, so the probability of sustained closure decays
+geometrically. Working backwards from the measured 1.6\% closure rate gives a
+gripper action mean of approximately --0.52; at that mean:
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+$\sigma$ & P(close, 1 step) & P(5 consecutive) \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0.5 & 1.62\% & $\approx$ 0\% \\
+1.0 & 14.25\% & 0.0059\% \\
+\end{longtable}
+
+At $\sigma$ = 1.0 this yields approximately one five-step closure every 34
+episodes, which must additionally coincide with being within 5 cm of the object.
+At the measured 35\% reach rate:
+
+\begin{equation*}
+\approx 1 \text{ grasp every } 97 \text{ episodes} \approx 48{,}700 \text{ environment steps}
+\end{equation*}
+
+Approximately 48 episodes were run after the relevant configuration change, and
+one grasp was observed. The observation is therefore consistent with the model
+rather than anomalous --- the run was under-sampled by roughly a factor of two
+relative to the expected waiting time, not stuck.
+
+This analysis also identifies a targeted remedy. Holding each sampled action for
+k consecutive steps --- \emph{action repeat} --- converts the requirement from five
+independent successes into $\lceil$5/k$\rceil$, changing the expected waiting
+time from approximately 97 episodes to approximately 4 at k = 2. This is
+recommended as the highest-value single change in Section 8.2.
+
+\newpage
+
+\hypertarget{discussion}{%
+\chapter{Discussion}\label{discussion}}
+
+\hypertarget{loss-scale-as-a-statement-of-priorities}{%
+\section{Loss Scale as a Statement of Priorities}\label{loss-scale-as-a-statement-of-priorities}}
+
+Both major failures documented in this dissertation share a single structure: a
+prediction term scaled so far below the others that the optimiser rationally
+ignores what it encodes.
+
+In revision 1, image reconstruction contributed 0.8\% of the world-model
+objective, and the model responded by ceasing to encode observations at all. In
+revision 2, vector reconstruction contributed roughly 1\% of the objective, and
+the model responded by representing the static scene well and the manipulator
+and target object poorly. Same error class, displaced by one term.
+
+The generalisable statement is that in a multi-term objective, relative scale is
+not a tuning detail --- it is a statement about what the model is being asked to
+care about. A term at under 1\% of the objective is, functionally, absent.
+
+What makes this failure mode particularly dangerous is that it is \emph{silent}. No
+exception is raised. No NaN appears. The loss curve looks plausible. The model
+converges. And the solution it converges to is genuinely optimal for the
+objective as written; the objective simply did not encode what was intended.
+
+The practical recommendation is to instrument the loss decomposition from the
+first training run, logging each term separately alongside the total, and to
+treat any term below a few percent of the objective as a defect to be
+investigated rather than a hyperparameter to be accepted.
+
+\hypertarget{free-bits-is-a-one-sided-guard-1}{%
+\section{Free Bits Is a One-Sided Guard}\label{free-bits-is-a-one-sided-guard-1}}
+
+Free bits is widely presented as \emph{the} mechanism preventing posterior collapse in
+variational sequence models. The evidence in Section 5.1 shows that this
+characterisation is incomplete in a way that matters.
+
+Free bits clamps the KL loss at a floor and thereby removes the gradient below
+that floor. What it removes is the pressure to \emph{shrink} the divergence. It has no
+mechanism by which to create pressure to \emph{grow} it. That pressure must originate
+in a prediction term that genuinely requires observation information.
+
+When such a term is mis-scaled, free bits does not prevent collapse; it holds
+the divergence at its floor while the latent goes blind. The observed signature
+--- KL pinned at exactly the floor value of 0.60, contributing a constant 0.600 to
+the loss, with a total gradient norm of 0.01 --- is precisely this.
+
+The corollary is a useful diagnostic heuristic: a KL sitting exactly at the
+free-bits floor for an extended period should be treated as a warning rather than
+as evidence that the regulariser is working.
+
+\hypertarget{state-estimation-versus-dynamics-prediction}{%
+\section{State Estimation Versus Dynamics Prediction}\label{state-estimation-versus-dynamics-prediction}}
+
+The decomposition in Section 6.6.3 is the finding this dissertation would most
+wish to see tested elsewhere.
+
+The literature on learned dynamics models, and the diagnostic practice that
+accompanies it, is oriented predominantly toward \emph{rollout} accuracy: how quickly
+does prediction error compound, how far can the model be trusted, does the
+rollout diverge. The horizon figure in Section 6.3 is an instance of exactly this
+framing, and by that measure the model performs respectably --- error grows by a
+factor of 5.1 over twenty steps and remains bounded.
+
+The plan-versus-execution comparison reveals that this framing had been measuring
+the smaller of two contributions. Of the 0.128 m end-effector error at the
+planning horizon, 0.106 m is already present at the \emph{first} imagined step. The
+dynamics contribute 22 mm over 0.75 s of motion; the state estimate contributes
+five times as much before any dynamics are applied.
+
+This has a direct engineering implication. A practitioner observing the horizon
+curve alone would reasonably invest in longer-horizon accuracy: deeper recurrent
+state, longer training sequences, better regularisation of the transition model.
+The decomposition indicates this would address 17\% of the error. The remaining
+83\% lies in the mapping from observation to latent --- where improvements would
+come from higher observation resolution, an additional viewpoint such as a wrist
+camera, or an auxiliary loss that supervises state estimation directly.
+
+The measurement required to make this distinction is inexpensive: it needs only
+a simulator with a state-restore interface, which every physics engine used in
+robot learning provides.
+
+\hypertarget{precision-as-the-predictor-of-which-stages-are-learnable}{%
+\section{Precision as the Predictor of Which Stages Are Learnable}\label{precision-as-the-predictor-of-which-stages-are-learnable}}
+
+The central claim of this dissertation can be stated in one sentence:
+
+\begin{quote}
+\textbf{A planner cannot achieve a tolerance finer than its model's state error over
+the planning horizon.}
+\end{quote}
+
+Applied to the present system: state error is 0.128 m at H = 15; the grasp
+tolerance is 0.050 m; the deficit is a factor of 2.6.
+
+The claim's value is that it predicts \emph{which} task stages are learnable rather
+than merely stating that the task was not solved. Reaching requires only that
+the model be correct about direction, and reaching was learned --- 25\% success
+against 0\% for random, statistically significant. Grasping requires centimetre
+accuracy in the relative geometry of gripper and object, and grasping occurred
+once in twenty evaluation episodes rather than reliably.
+
+This connects to the visual evidence in Section 6.2.3, where the manipulator is
+rendered well and the small target object poorly. Reaching depends on the arm's
+own configuration, which the model represents. Grasping depends on the
+\emph{relative} geometry of gripper and can, which requires localising the can --- the
+element the model represents worst.
+
+The claim is quantitative, falsifiable, and framed in terms general to
+model-based planning rather than specific to DreamerV3 or to this task.
+
+\hypertarget{limitations}{%
+\section{Limitations}\label{limitations}}
+
+Several limitations qualify the results above, and they are stated directly.
+
+\textbf{Single seed.} Every configuration was run once. Differences between revisions
+therefore confound configuration effects with seed variance. The largest effects
+reported --- the 200-fold change in reconstruction magnitude, the transition from
+zero grasps to a recorded grasp --- are unlikely to be seed artefacts, but the
+smaller differences should be read as suggestive only.
+
+\textbf{No positive control.} The \texttt{Lift} experiment described in Section 4.1 was
+planned and not executed. This is the most consequential gap in the work: without
+demonstrating that the implementation solves a task it should solve, the negative
+results on PickPlaceCan cannot be fully separated from residual implementation
+defects. The twelve-test verification suite and the reference-fidelity table
+mitigate this but do not replace it.
+
+\textbf{Reduced model capacity.} The recurrent state was reduced from 8192 to 2048
+units for memory reasons. Given that the identified limitation is state
+estimation, reduced latent capacity is a plausible contributing factor and cannot
+be excluded.
+
+\textbf{Single-episode grasp statistics.} The grasp and lift rates rest on one episode
+in twenty. This is reported throughout as an existence proof rather than a rate,
+but the distinction is worth restating.
+
+\textbf{Rolling-window artefacts.} The training-time statistics window is reconstructed
+empty on every resume, so \texttt{policy/*\_rate} values immediately after a restart are
+computed from very few episodes. Values reported in Section 5 are drawn from
+filled windows or from the separate evaluation protocol; the training curves
+should be read with this in mind.
+
+\textbf{A run terminated by numerical divergence.} The run described in Section 5.4
+ended in divergence at approximately 84,000 steps. Training was subsequently
+resumed from the 80,000-step checkpoint with a reduced world-model gradient clip
+and mixed precision disabled, and ran without incident to 128,000 steps
+(Section 5.5). The evaluation figures in Section 5.3 derive from the
+80,000-step checkpoint; the stage-rate results in Section 5.5 derive from
+training telemetry over the extended run and have not yet been confirmed by a
+separate deterministic evaluation. That evaluation is the single most valuable
+remaining measurement.
+
+\hypertarget{relation-to-published-results}{%
+\section{Relation to Published Results}\label{relation-to-published-results}}
+
+The negative result on the full task is consistent with the literature reviewed
+in Section 2.5 rather than anomalous. The Robosuite authors report SAC failing on
+this environment under standard settings; the one documented pure-reinforcement-
+learning success required fifteen million steps with curriculum learning. Against
+that, a budget of 128,000 steps --- under 1\% of the reported requirement ---
+producing statistically significant reaching and a sustained 10--15\% grasp and
+lift rate is a coherent and, in context, a strong outcome.
+
+The contribution therefore lies not in the performance achieved but in the
+account of the limiting factor, and in the demonstration that such an account can
+be obtained with modest instrumentation.
+
+\newpage
+
+\hypertarget{conclusions-and-future-work}{%
+\chapter{Conclusions and Future Work}\label{conclusions-and-future-work}}
+
+\hypertarget{conclusions}{%
+\section{Conclusions}\label{conclusions}}
+
+This dissertation set out to determine whether a learned latent world model can
+substitute for an analytical dynamics model in manipulator trajectory planning,
+and to identify the limiting factor where it cannot.
+
+\textbf{A faithful implementation was produced and verified.} Every hyperparameter
+defining the algorithm matches the published specification, and a twelve-test
+numerical suite confirms the correctness of the components most prone to silent
+error.
+
+\textbf{The model functions as a trajectory predictor.} Conditioned on five observed
+frames, it predicts 35 further steps of manipulator motion without sensory
+feedback, with error growing by a factor of 5.1 over twenty steps and remaining
+bounded. Root-mean-square pixel error at H = 20 is 29 intensity levels out of
+255.
+
+\textbf{Planned trajectories transfer to execution.} The resulting policy beats a
+uniform-random baseline by a factor of 4.91 in episode return
+(p = 0.0006, Cohen's d = 1.24), reaches the object in 25\% of episodes
+against 0\% for random (p = 0.047), and achieved a grasp and a lift under
+deterministic evaluation with a maximum observed reward of 0.3510 --- above
+Robosuite's grasp threshold and 4.2 times higher than any previously recorded
+value in this project.
+
+\textbf{Grasping and lifting became sustained behaviours.} Extended training to
+128,000 steps raised grasp and lift rates from zero to a sustained 10--15\%, with
+\texttt{episode/stage} reaching 3 (lifted) repeatedly and peak episode return rising to
+approximately 30. The task was not completed --- placement was never achieved ---
+but three of its four stages were.
+
+\textbf{Two failure modes were diagnosed to the level of mechanism.} A loss-scaling
+error reducing image reconstruction to 0.8\% of the objective and producing
+posterior collapse; and a precision limit of 0.128 m against a 0.050 m task
+tolerance. In the course of the second diagnosis, a competing hypothesis was
+constructed from converging evidence and then falsified by a measurement built
+specifically to test it --- an outcome reported here as a feature of the method.
+
+\textbf{The limiting factor is state estimation, not dynamics prediction.} Of the
+end-effector error at the planning horizon, 83\% is present at the first imagined
+step and 17\% accumulates thereafter. This reframes where improvement effort
+should be directed and is, to the author's knowledge, a novel decomposition for
+this class of model.
+
+\textbf{Sparse-reward consolidation has a density threshold.} The grasp count in the
+replay buffer rose from 28 to 214 and the expected successes per batch from 0.32
+to 1.59, at which point grasping consolidated. An earlier and more pessimistic
+conclusion drawn from a 70,000-step plateau is corrected in Section 6.7.1; the
+mechanism identified at the time was right, the inference from a finite window
+was not.
+
+\textbf{The general claim} --- that a planner cannot achieve a tolerance finer than its
+model's state error over the planning horizon --- is quantitative, testable, and
+correctly predicts which task stages this system could and could not learn.
+
+\hypertarget{future-work}{%
+\section{Future Work}\label{future-work}}
+
+Five directions follow from the findings, ordered by expected value.
+
+\textbf{Demonstration seeding.} Section 5.5 shows that consolidation began once the
+buffer held roughly 1.6 successes per batch, reached after 128,000 steps of
+unaided exploration. Robomimic supplies 200 human demonstrations for this exact
+task, which would place the buffer above that density from the first gradient
+step. This remains the highest-value single intervention, and the threshold
+measured here gives a concrete target for how much demonstration data is
+required rather than an open-ended recommendation.
+
+\textbf{Action repeat.} The analysis in Section 6.8 shows that sustained gripper
+closure is the binding constraint on grasp \emph{discovery}, and that holding each
+sampled action for two consecutive steps reduces the expected waiting time from
+approximately 97 episodes to approximately 4. This is a one-line change and
+should be evaluated first, before any architectural work.
+
+\textbf{Auxiliary state-estimation supervision.} Given that 83\% of planning error is a
+state-estimation offset, an auxiliary loss supervising the latent's ability to
+recover known state --- end-effector pose and object position are both available
+in simulation --- targets the dominant error term directly. Higher observation
+resolution or an additional wrist-mounted viewpoint would serve the same end.
+
+\textbf{Prioritised replay of successful transitions.} A cheaper partial remedy than
+demonstration seeding, drawing a fixed fraction of each batch from windows
+surrounding recorded successes. The instrumentation to identify those windows
+already exists in the implementation.
+
+\textbf{Systematic validation.} Multiple seeds, the \texttt{Lift} positive control, and a
+controlled ablation of \texttt{vector\_loss\_scale} at matched step counts. None of these
+are novel, but all are prerequisites for converting the findings here from
+well-evidenced observations into established results.
+
+\hypertarget{closing-remark}{%
+\section{Closing Remark}\label{closing-remark}}
+
+The most transferable outcome of this work is not a performance number but a
+practice. Standard reinforcement learning telemetry is poorly suited to
+localising failure, and across two revisions it indicated reliably that something
+was wrong while never indicating what. In each case the answer came from a
+purpose-built measurement: decomposing a loss value into its terms, visualising
+the rollout the actor actually trains on, differentiating the return with respect
+to the action, and comparing a plan against its own execution from a restored
+state.
+
+None of these instruments is technically sophisticated. Each took under a day to
+build. Together they converted two opaque failures into two quantified mechanisms
+and one general claim --- which is a better return on effort than the additional
+training steps the same time would otherwise have purchased.
+
+\newpage
+
+\hypertarget{references}{%
+\chapter{References}\label{references}}
+
+\emph{References follow APA style. Entries marked with an asterisk were added
+to the interim-report bibliography to cover sources cited in Sections 3,
+5 and 6 of this final report.}
+
+Agarwal, R., Schwarzer, M., Castro, P.~S., Courville, A., \& Bellemare, M.~G. (2021). Deep reinforcement learning at the edge of the statistical precipice. \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 34.
+
+Andrychowicz, O.~M., Baker, B., Chociej, M., Jozefowicz, R., McGrew, B., Pachocki, J., \ldots~Zaremba, W. (2020). Learning dexterous in-hand manipulation. \emph{The International Journal of Robotics Research}, 39(1), 3--20.
+
+Calandra, R., Owens, A., Jayaraman, D., Lin, J., Yuan, W., Malik, J., \ldots~Levine, S. (2018). More than a feeling: Learning to grasp and regrasp using vision and touch. \emph{IEEE Robotics and Automation Letters}, 3(4), 3300--3307.
+
+Calli, B., Singh, A., Walsman, A., Srinivasa, S., Abbeel, P., \& Dollar, A.~M. (2015). The YCB object and model set. In \emph{Proceedings of the IEEE International Conference on Advanced Robotics (ICAR)}.
+
+Duan, Y., Schulman, J., Chen, X., Bartlett, P.~L., Sutskever, I., \& Abbeel, P. (2016). RL\(^{2}\): Fast reinforcement learning via slow reinforcement learning. \emph{arXiv preprint arXiv:1611.02779}.
+
+Finn, C., Abbeel, P., \& Levine, S. (2017). Model-agnostic meta-learning for fast adaptation of deep networks. In \emph{Proceedings of the International Conference on Machine Learning (ICML)}.
+
+Ha, D., \& Schmidhuber, J. (2018). World models. \emph{arXiv preprint arXiv:1803.10122}.
+
+Haarnoja, T., Zhou, A., Abbeel, P., \& Levine, S. (2018). Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor. In \emph{Proceedings of the International Conference on Machine Learning (ICML)}.
+
+Hafner, D., Lillicrap, T., Ba, J., \& Norouzi, M. (2020). Dream to control: Learning behaviors by latent imagination. In \emph{Proceedings of the International Conference on Learning Representations (ICLR)}.
+
+Hafner, D., Lillicrap, T., Fischer, I., Villegas, R., Ha, D., Lee, H., \& Davidson, J. (2019). Learning latent dynamics for planning from pixels. In \emph{Proceedings of the International Conference on Machine Learning (ICML)}.
+
+Hafner, D., Lillicrap, T., Norouzi, M., \& Ba, J. (2021). Mastering Atari with discrete world models. In \emph{Proceedings of the International Conference on Learning Representations (ICLR)}.
+
+Hafner, D., Pasukonis, J., Ba, J., \& Lillicrap, T. (2023). Mastering diverse domains through world models. \emph{arXiv preprint arXiv:2301.04104}.
+
+Harrison, J., Sharma, A., Finn, C., \& Pavone, M. (2020). Continuous meta-learning without tasks. \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 33.
+
+Henderson, P., Islam, R., Bachman, P., Pineau, J., Precup, D., \& Meger, D. (2018). Deep reinforcement learning that matters. In \emph{Proceedings of the AAAI Conference on Artificial Intelligence}.
+
+Jaegle, A., Borgeaud, S., Alayrac, J.-B., Doersch, C., Ionescu, C., Ding, D., \ldots~Zisserman, A. (2021). Perceiver IO: A general architecture for structured inputs \& outputs. In \emph{Proceedings of the International Conference on Learning Representations (ICLR)}.
+
+James, S., Ma, Z., Arrojo, D.~R., \& Davison, A.~J. (2020). RLBench: The robot learning benchmark \& learning environment. \emph{IEEE Robotics and Automation Letters}, 5(2), 3019--3026.
+
+Jang, E., Gu, S., \& Poole, B. (2017). Categorical reparameterization with Gumbel-Softmax. In \emph{Proceedings of the International Conference on Learning Representations (ICLR)}.
+
+Janner, M., Fu, J., Zhang, M., \& Levine, S. (2019). When to trust your model: Model-based policy optimisation. \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 32.
+
+Khatib, O. (1987). A unified approach for motion and force control of robot manipulators: The operational space formulation. \emph{IEEE Journal on Robotics and Automation}, 3(1), 43--53.
+
+Kingma, D. P., \& Welling, M. (2014). Auto-encoding variational Bayes. In \emph{Proceedings of the International Conference on Learning Representations (ICLR)}.
+
+Kingma, D. P., Salimans, T., Jozefowicz, R., Chen, X., Sutskever, I., \& Welling, M. (2016). Improved variational inference with inverse autoregressive flow. \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 29.
+
+Kumar, A., Fu, Z., Pathak, D., \& Malik, J. (2021). RMA: Rapid motor adaptation for legged robots. In \emph{Proceedings of Robotics: Science and Systems (RSS)}.
+
+Levine, S., Pastor, P., Krizhevsky, A., Ibarz, J., \& Quillen, D. (2016). Learning hand-eye coordination for robotic grasping with deep learning and large-scale data collection. \emph{The International Journal of Robotics Research}, 37(4--5), 421--436.
+
+Makoviychuk, V., Wawrzyniak, L., Guo, Y., Lu, M., Storey, K., Macklin, M., \ldots~State, G. (2021). Isaac Gym: High performance GPU based physics simulation for robot learning. In \emph{Proceedings of the Neural Information Processing Systems (NeurIPS) Datasets and Benchmarks Track}.
+
+Mandlekar, A., Xu, D., Wong, J., Nasiriany, S., Wang, C., Kulkarni, R., Fei-Fei, L., Savarese, S., Zhu, Y., \& Mart\'in-Mart\'in, R. (2021). What matters in learning from offline human demonstrations for robot manipulation. In \emph{Proceedings of the Conference on Robot Learning (CoRL)}.
+
+Nasiriany, S., Liu, H., \& Zhu, Y. (2022). Augmenting reinforcement learning with behavior primitives for diverse manipulation tasks. In \emph{Proceedings of the IEEE International Conference on Robotics and Automation (ICRA)}.
+
+OpenAI, Andrychowicz, M., Baker, B., Chociej, M., Jozefowicz, R., McGrew, B., \ldots~Zaremba, W. (2019). Solving Rubik's cube with a robot hand. \emph{arXiv preprint arXiv:1910.07113}.
+
+Pfrommer, S., Halm, M., \& Posa, M. (2021). ContactNets: Learning discontinuous contact dynamics with smooth, implicit representations. In \emph{Proceedings of the Conference on Robot Learning (CoRL)}.
+
+Posa, M., Cantu, C., \& Tedrake, R. (2014). A direct method for trajectory optimisation of rigid bodies through contact. \emph{The International Journal of Robotics Research}, 33(1), 69--81.
+
+Schrittwieser, J., Antonoglou, I., Hubert, T., Simonyan, K., Sifre, L., Schmitt, S., \ldots~Silver, D. (2020). Mastering Atari, Go, Chess and Shogi by planning with a learned model. \emph{Nature}, 588(7839), 604--609.
+
+Schulman, J., Wolski, F., Dhariwal, P., Radford, A., \& Klimov, O. (2017). Proximal policy optimisation algorithms. \emph{arXiv preprint arXiv:1707.06347}.
+
+Sutton, R.~S. (1990). Integrated architectures for learning, planning, and reacting based on approximating dynamic programming. In \emph{Proceedings of the International Conference on Machine Learning (ICML)}.
+
+Sutton, R.~S., \& Barto, A.~G. (2018). \emph{Reinforcement Learning: An Introduction} (2nd ed.). MIT Press.
+
+Tobin, J., Fong, R., Ray, A., Schneider, J., Zaremba, W., \& Abbeel, P. (2017). Domain randomisation for transferring deep neural networks from simulation to the real world. In \emph{Proceedings of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}.
+
+Todorov, E., Erez, T., \& Tassa, Y. (2012). MuJoCo: A physics engine for model-based control. In \emph{Proceedings of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}.
+
+Wolpert, D.~M., Ghahramani, Z., \& Jordan, M.~I. (1995). An internal model for sensorimotor integration. \emph{Science}, 269(5232), 1880--1882.
+
+Yarats, D., Fergus, R., Lazaric, A., \& Pinto, L. (2021). Mastering visual continuous control: Improved data-augmented reinforcement learning. In \emph{Proceedings of the International Conference on Learning Representations (ICLR)}.
+
+Yu, T., Quillen, D., He, Z., Julian, R., Hausman, K., Finn, C., \& Levine, S. (2020). Meta-world: A benchmark and evaluation for multi-task and meta reinforcement learning. In \emph{Proceedings of the Conference on Robot Learning (CoRL)}.
+
+Zeng, A., Song, S., Lee, J., Rodriguez, A., \& Funkhouser, T. (2019). TossingBot: Learning to throw arbitrary objects with residual physics. \emph{IEEE Transactions on Robotics}, 36(4), 1307--1319.
+
+Zhang, A., McAllister, R., Calandra, R., Gal, Y., \& Levine, S. (2021). Learning invariant representations for reinforcement learning without reconstruction. In \emph{Proceedings of the International Conference on Learning Representations (ICLR)}.
+
+Zhang, B., \& Sennrich, R. (2019). Root mean square layer normalization. \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 32.
+
+Zhu, Y., Wong, J., Mandlekar, A., Mart\'in-Mart\'in, R., Joshi, A., Nasiriany, S., \& Zhu, Y. (2020). Robosuite: A modular simulation framework and benchmark for robot learning. \emph{arXiv preprint arXiv:2009.12293}.
+
+\newpage
+
+\hypertarget{appendices}{%
+\chapter{Appendices}\label{appendices}}
+
+\hypertarget{appendix-a-complete-hyperparameter-configuration}{%
+\section{Appendix A --- Complete Hyperparameter Configuration}\label{appendix-a-complete-hyperparameter-configuration}}
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+Group & Parameter & Value \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Environment & Task & PickPlaceCan \\
+& Robot & Panda \\
+& Controller & OSC\_POSE \\
+& Camera & agentview, 64$\times$64 \\
+& Control frequency & 20 Hz \\
+& Episode horizon & 500 \\
+& Reward shaping & Enabled \\
+Replay & Capacity & 500,000 \\
+& Batch size & 16 \\
+& Sequence length & 64 \\
+World model & Deterministic state & 2048 \\
+& Stochastic latents & 32 $\times$ 32 \\
+& CNN depth & 48 \\
+& Two-hot bins & 255 \\
+& $\beta$\_pred & 1.0 \\
+& $\beta$\_dyn & 0.5 \\
+& $\beta$\_rep & 0.1 \\
+& Free nats & 1.0 \\
+& Unimix & 0.01 \\
+& Learning rate & 1e-4 \\
+& Gradient clip & 1000 \\
+& \texttt{vector\_loss\_scale} & 10.0 \\
+Actor--critic & Imagination horizon & 15 \\
+& Imagination batch & 256 \\
+& Discount $\gamma$ & 0.997 \\
+& $\lambda$ & 0.95 \\
+& Actor / critic LR & 3e-5 \\
+& Actor entropy & 3e-4 \\
+& Actor $\sigma$ range & {[}0.1, 1.0{]} \\
+& Critic EMA decay & 0.98 \\
+& Return normalisation & P95--P5, floor 1.0 \\
+Training & Prefill steps & 10,000 \\
+& Train ratio & 32 \\
+& Mixed precision & Enabled \\
+\end{longtable}
+
+\hypertarget{appendix-b-verification-suite}{%
+\section{Appendix B --- Verification Suite}\label{appendix-b-verification-suite}}
+
+The twelve-test suite described in Section 3.6 is implemented as a standalone
+script executable against any checkpoint. Tests 2, 3, 5 and 12 function as
+regression tests for previously encountered defects and would fail if the
+corresponding fixes were reverted.
+
+\hypertarget{appendix-c-diagnostic-scripts}{%
+\section{Appendix C --- Diagnostic Scripts}\label{sec:tools}\label{appendix-c-diagnostic-scripts}}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.5000}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.5000}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Script
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Purpose
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{dv3\_common.py} & Shared checkpoint loading; imports architectures from \texttt{train.py} to prevent drift \\
+\texttt{evaluate.py} & Policy evaluation with matched uniform-random baseline \\
+\texttt{inspect\_world\_model.py} & Numeric report: MSE, KL, entropies, reward calibration \\
+\texttt{visualize\_reconstruction.py} & Open-loop rollout videos, contact sheets, horizon and latent figures \\
+\texttt{check\_action\_response.py} & Action-response Tests A, B and C \\
+\texttt{visualize\_imagination.py} & Plan-versus-execution comparison from restored simulator state \\
+\end{longtable}
+
+A note on \texttt{dv3\_common.py}: an earlier evaluation script redefined every network
+class independently and silently diverged from the training implementation. A
+missing \texttt{symlog} on the vector encoder loaded without error and produced
+incorrect inputs; separately, the RSSM was fed zeros in place of the previous
+action at every timestep, corrupting every latent it produced. Importing the
+definitions from the training script eliminates this entire class of failure and
+is recommended practice.
+
+\hypertarget{appendix-d-reference-numerical-values}{%
+\section{Appendix D --- Reference Numerical Values}\label{appendix-d-reference-numerical-values}}
+
+\begin{verbatim}
+Free-bits floor           0.5 x 1.0 + 0.1 x 1.0            = 0.600
+Revision 1 loss           0.600 + 0.045                    = 0.645  (observed)
+Latent entropy maximum    log(32)                          = 3.466 nats
+Revision 1 KL per latent  0.60 / 32                        = 0.019 nats
+Actor entropy maximum     7 x 0.5 x log(2pie x 1.0^2)        = 9.933  (observed 9.93)
+Pixel dimensions          3 x 64 x 64                      = 12,288
+Revision 1 recon : KL     0.005 / 0.600                    = 0.008
+Open-loop error at H=15                                      0.128 m
+Error present at step 1                                      0.106 m  (83%)
+Error accumulated to H=15                                    0.022 m  (17%)
+Task reach threshold                                         0.050 m
+Precision deficit         0.128 / 0.050                    = 2.6x
+Action gradient ratio     0.82 / 1.05                      = 0.78
+Return ratio (80k)        4.777 / 0.973                    = 4.91x
+Return significance       Welch t = 3.92, df = 25.5        , p = 0.0006
+Cohen's d                                                    1.24
+Reach rate                5/20 vs 0/20, Fisher              p = 0.047
+Max reward (80k)                                             0.3510
+Max reward (55k)                                             0.0827
+Reward head over-prediction                                  4.9x
+Grasp transitions         28 of 91,000                     = 0.031%
+Expected grasps per batch 1,024 x 0.00031                  = 0.31
+P(batch contains none)                                     ~ 73%
+Planning horizon          15 steps at 20 Hz                = 0.75 s
+\end{verbatim}
+
+
+\end{document}

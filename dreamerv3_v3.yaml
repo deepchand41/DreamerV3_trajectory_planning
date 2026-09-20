@@ -1,0 +1,218 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# DreamerV3 — Robosuite Panda PickPlaceCan
+# REVISION 5 — stability config for resuming from the 80k checkpoint
+#
+# [paper]    value from Hafner et al. 2023, Table 4
+# [tuned]    adapted for Colab T4/L4
+# [FIX n]    revision 1-3 fixes, retained
+# [REV5]     changed in revision 5 after the ~84k numerical divergence
+#
+# RESUME COMMAND — note --checkpoint is REQUIRED here, because
+# checkpoints/latest.pt was overwritten with post-divergence weights:
+#
+#   python scripts/train.py \
+#       --config configs/panda_pickplace_stable.yaml \
+#       --checkpoint checkpoints/grasping_80k.pt
+#
+# Do NOT pass --fresh. Do NOT pass --reset_actor_opt.
+# ═══════════════════════════════════════════════════════════════════════════
+
+env:
+  task: PickPlaceCan
+  robot: Panda
+  controller: OSC_POSE
+  camera: agentview
+  image_size: 64
+  obs_keys:
+    - robot0_eef_pos          # 3
+    - robot0_eef_quat         # 4
+    - robot0_gripper_qpos     # 2
+    - robot0_joint_pos        # 7
+    - object-state            # 14   -> 30 total
+  reward_shaping: true        # required: InstrumentedEnv reads staged_rewards()
+  control_freq: 20
+  horizon: 500
+  seed: 42
+
+training:
+  # [REV5] 300_000 -> 88_000. A hard stop 8k steps past the 80k resume point.
+  # At train_ratio 16 in fp32 that is roughly 16 hours. The check is simple:
+  # does buffer/grasp_pct * buffer/size climb past 28 within ~4k steps? If it
+  # has not moved by then, the extension has produced nothing the 80k
+  # checkpoint did not already have, and the right decision is to stop.
+  total_steps: 88_000
+  prefill_steps: 10_000
+
+  # [REV5] 32 -> 16. Halves gradient updates per env step: roughly doubles env
+  # throughput and halves the exposure to divergence. Repays most of what
+  # fp32 costs. It IS a real trade -- each grasp gets half as many updates.
+  train_ratio: 16
+
+  checkpoint_every: 5_000     # [tuned] Drive I/O is expensive on Colab
+  log_every: 500              # [tuned]
+  collapse_check_every: 2_000 # [FIX] decoder-variance diagnostic + REV5 tripwire
+  stat_window: 20
+  device: cuda
+  seed: 42
+
+  # [REV5] true -> false. THE PRIME SUSPECT for the 84k divergence.
+  # fp16 maxes out at 65504. world_model/reconstruction reached ~2000, so the
+  # intermediate activations producing it went far higher. One overflow to inf
+  # in the forward pass writes NaN into the weights on the backward pass, after
+  # which every batch fails identically -- which is exactly the linear
+  # nan_skips climb that was observed rather than a spike-and-settle.
+  # The T4 is Turing, so bf16 is unavailable; fp32 is the only safe option.
+  # Costs ~30-40% throughput, which train_ratio 16 above repays.
+  mixed_precision: false
+
+replay:
+  capacity: 500_000
+  batch_size: 16              # [paper] 16
+  batch_length: 64            # [paper] 64
+  min_seq_length: 64
+
+world_model:
+  # --- RSSM ---
+  rssm_deter: 2048            # [tuned] paper 200M model uses 8192; 2048 fits a T4
+  rssm_stoch: 32              # [paper]
+  rssm_classes: 32            # [paper]  -> 32x32 discrete latent
+
+  # --- encoders / decoders ---
+  encoder_cnn_depth: 48
+  encoder_mlp_units: 256
+
+  # [FIX 5] Vector decoder. Set decode_vector false to run the ablation.
+  decode_vector: true
+  vector_decoder_layers: 2
+  vector_decoder_units: 512
+
+  # [REV5 / rev3] 1.0 -> 10.0.
+  # CHECK THIS AGAINST THE RUN YOU ACTUALLY EXECUTED. The train.py revision-3
+  # header specifies vector_loss_scale 10.0, but the config as uploaded still
+  # read 1.0 -- so either the 55k->83k run used a different file, or it ran
+  # without the substantive part of the rev-3 fix. At 1.0 the 30-dim
+  # proprioception vector carries under 1% of the prediction loss while the
+  # image term (dominated by static table, bins and background) carries the
+  # rest, which is the measured cause of the 0.125 m open-loop error.
+  vector_loss_scale: 10.0
+
+  # --- prediction heads ---
+  reward_layers: 2
+  reward_units: 512
+  continue_layers: 2
+  continue_units: 512
+  num_bins: 255               # [paper] symexp two-hot bins
+
+  # --- losses (paper Eq. 4-5) ---
+  beta_pred: 1.0              # [paper]
+  beta_dyn: 0.5               # [paper] KL term that trains the PRIOR
+  beta_rep: 0.1               # [paper] KL term that trains the POSTERIOR
+  kl_free: 1.0                # [paper] free bits, in nats
+  unimix: 0.01                # [paper] 1% uniform mixture on categoricals
+
+  # --- optimisation ---
+  model_lr: 1.0e-4            # [paper]
+  model_eps: 1.0e-8           # [paper]
+
+  # [REV5] 1000 -> 50.
+  # FIX 3 raised this to the paper value of 1000 because reconstruction is now
+  # summed over pixel dims (~50-300 rather than 0.005), so a clip of 100 would
+  # have fired every step. That reasoning was right for NORMAL magnitudes and
+  # wrong for the tail: at 1000, a 200x excursion to ~2000 passes through
+  # essentially unclipped. 50 sits below the operating range's peak but bounds
+  # the excursion hard. Expect wm_gn to sit AT 50 fairly often -- that is the
+  # clip working, and the world model is already trained.
+  grad_clip: 50.0
+
+actor_critic:
+  actor_layers: 3
+  actor_units: 512
+
+  # [REV5] 0.1 -> 0.2. actor/entropy crashed to -18 at 84k, i.e. sigma pinned
+  # at the floor across all 7 dims and the policy went effectively
+  # deterministic. A deterministic policy stops generating diverse data, the
+  # buffer narrows, and the world model's inputs narrow with it -- a
+  # second-order feedback loop into the same failure. Raising the floor does
+  # not fix the cause but bounds the consequence.
+  actor_min_std: 0.2
+
+  # DO NOT LOWER THIS FOR STABILITY. At a gripper mean of -0.52:
+  #     sigma 1.0 -> P(close) = 14.25% per step
+  #     sigma 0.5 -> P(close) =  1.62% per step
+  # and a grasp needs SUSTAINED closure, so 5 consecutive steps goes from
+  # 5.9e-5 to 1.1e-9. Lowering this to 0.5 is exactly what eliminated grasping
+  # in revision 3. It is the single most tempting wrong move in this config.
+  actor_max_std: 1.0
+
+  critic_layers: 3
+  critic_units: 512
+
+  imagination_horizon: 15     # [paper] H=15
+  imagination_batch: 256
+  lambda_: 0.95               # [paper]
+  discount: 0.997             # [paper]  FIX 2 -- now actually applied
+  actor_grad: dynamics        # reparameterised; do not switch to reinforce
+  actor_entropy: 3.0e-4       # [paper]  FIX 4
+  actor_lr: 3.0e-5            # [paper]
+  critic_lr: 3.0e-5           # [paper]
+
+  # [REV5] 100 -> 5 (both).
+  # critic/grad_norm was already spiking to 9-10 in the logs BEFORE the
+  # divergence, so a clip of 100 was doing nothing at all. The rev-2 note said
+  # "if actor/grad_norm spikes above ~50 repeatedly, drop back to 10" -- the
+  # divergence is that condition arriving all at once. 5 gives real margin.
+  actor_grad_clip: 5.0
+  critic_grad_clip: 5.0
+
+  # --- percentile return normalisation (paper Eq. 7-8) ---
+  return_ema_decay: 0.99      # [paper]
+  return_limit: 1.0           # [paper] the max(1, S) floor. Do not lower.
+
+  # --- slow critic ---
+  critic_ema_decay: 0.98      # [paper]
+  critic_slow_reg: 1.0        # [paper]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# [REV5] Stability block — consumed by main() in train.py
+# ═══════════════════════════════════════════════════════════════════════════
+stability:
+  # Consecutive non-finite batches before rewinding to the last clean state.
+  # 20 at train_ratio 16 is ~1.25 env steps of tolerance: long enough to ride
+  # out a genuine one-off, short enough that corruption cannot settle in.
+  nan_patience: 20
+
+  # Gradient steps between snapshots. At train_ratio 16 this is a snapshot
+  # every ~31 env steps, so a rewind loses almost nothing. Memory cost is one
+  # CPU copy of ~43M params plus Adam moments, roughly 500 MB. Exactly one
+  # snapshot is held; never a history.
+  snapshot_every: 500
+
+  # Halve every learning rate on each rewind. A rewind WITHOUT a rate
+  # reduction just replays the same trajectory into the same cliff.
+  lr_decay_on_rewind: 0.5
+
+  # Past this many rewinds the configuration is unsalvageable at this
+  # operating point. Stop and report from the 80k checkpoint.
+  max_rewinds: 4
+
+  # Hard abort thresholds. Normal reconstruction is 5-30; it reached ~2000.
+  abort_on_recon: 100.0
+
+  # recon_std_ratio is the EARLIEST warning available -- it reached 135 during
+  # the 84k event and it moves BEFORE the loss curves do. Normal is ~1.0.
+  # Tripping at 5 stops the run while the weights are still clean, which is
+  # the difference between losing 200 steps and losing 4,000.
+  abort_on_std_ratio: 5.0
+
+  # If the loaded buffer contains non-finite entries, drop this many
+  # transitions from the tail (the post-divergence acting window) and rescan.
+  # Set 0 to disable and fail hard instead.
+  drop_bad_buffer_tail: 4000
+
+logging:
+  log_dir: logs/
+  checkpoint_dir: checkpoints/
+  use_wandb: true
+  wandb_project: dreamerv3-panda
+  wandb_run_name: null        # null -> auto timestamp
+  wandb_run_id: null          # set to a previous run id to resume that run
