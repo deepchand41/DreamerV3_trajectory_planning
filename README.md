@@ -3,13 +3,13 @@
 This repository contains the implementation and experimental work for an MSc dissertation investigating the use of **DreamerV3 world-model reinforcement learning for robotic trajectory planning** using a **Franka Panda robotic arm** in the **Robosuite** simulation environment.
 
 <p align="center">
-  <img src="assets/agent_ep00_lift.gif" width="400">
+  <img src="assets/agent_ep00_lift.gif" width="300">
 </p>
 
 The project applies DreamerV3 to the `PickPlaceCan` manipulation task and investigates not only training performance but also the reasons behind successful and unsuccessful behaviour. The implementation therefore includes training, evaluation, visualisation, and diagnostic experiments.
 
 <p align="center">
-  <img src="assets/recon_seq01.gif" width="400">
+  <img src="assets/recon_seq01.gif" width="600">
 </p>
 
 ---
