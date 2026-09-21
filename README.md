@@ -289,6 +289,10 @@ Observation
 
 DreamerV3 is a model-based reinforcement learning algorithm based on learning a latent world model and training the policy using imagined trajectories.
 
+<p align="center">
+  <img src="assets/DreamerV3_architecture.jpeg" width="700">
+</p>
+
 The major components are:
 
 ### Encoder
