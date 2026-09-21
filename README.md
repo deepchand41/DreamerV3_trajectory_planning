@@ -8,6 +8,10 @@ This repository contains the implementation and experimental work for an MSc dis
 
 The project applies DreamerV3 to the `PickPlaceCan` manipulation task and investigates not only training performance but also the reasons behind successful and unsuccessful behaviour. The implementation therefore includes training, evaluation, visualisation, and diagnostic experiments.
 
+<p align="center">
+  <img src="assets/recon_seq01.gif" width="400">
+</p>
+
 ---
 
 ## 1. Project Overview
