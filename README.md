@@ -936,187 +936,7 @@ Using a Git commit hash for each experiment is particularly useful because it id
 
 ---
 
-# 31. Common Problems
-
-## ImportError
-
-If Python cannot find a package:
-
-```bash
-pip install <package-name>
-```
-
-Then verify:
-
-```bash
-python -c "import <package-name>"
-```
-
----
-
-## Wrong Python Environment
-
-Check:
-
-```bash
-which python
-```
-
-and:
-
-```bash
-python --version
-```
-
-Make sure the virtual environment is activated.
-
----
-
-## Robosuite/MuJoCo Error
-
-Check that the installed Robosuite and MuJoCo versions are compatible with the versions used by the project.
-
-Reinstall the versions specified by:
-
-```text
-requirements.txt
-```
-
-rather than independently upgrading packages.
-
----
-
-## CUDA/JAX Problems
-
-If using a GPU, make sure the installed JAX version and CUDA support are compatible.
-
-For an initial debugging run, CPU execution can be useful where supported by the implementation.
-
-The official DreamerV3 documentation also recommends checking CUDA/JAX compatibility when GPU initialisation fails.
-
----
-
-## Out-of-Memory Error
-
-Reduce the computational load using the configuration options provided by the training implementation.
-
-Typical parameters that may affect memory include:
-
-```text
-Batch size
-Sequence length
-Model size
-Number of parallel environments
-Image/observation resolution
-```
-
-Do not change several parameters simultaneously when debugging; changing one variable at a time makes the cause easier to identify.
-
----
-
-# 32. Git Workflow
-
-Before committing changes:
-
-```bash
-git status
-```
-
-Review the changes:
-
-```bash
-git diff
-```
-
-Add only the files that should be committed:
-
-```bash
-git add README.md
-```
-
-Or add several specific files:
-
-```bash
-git add scripts/train.py scripts/evaluate.py README.md
-```
-
-Commit:
-
-```bash
-git commit -m "Update project documentation"
-```
-
-Push:
-
-```bash
-git push origin main
-```
-
-Avoid committing generated checkpoints, large experiment logs, virtual environments, cache directories, or other unnecessary build artifacts.
-
----
-
-# 33. Recommended `.gitignore`
-
-The repository should normally exclude generated files such as:
-
-```gitignore
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.env
-
-# Jupyter
-.ipynb_checkpoints/
-
-# IDE
-.vscode/
-.idea/
-
-# Experiment outputs
-logs/
-logdir/
-runs/
-wandb/
-
-# Model checkpoints
-checkpoints/
-*.ckpt
-*.pth
-*.pt
-
-# Generated results
-results/
-outputs/
-
-# OS
-.DS_Store
-```
-
-Modify this list if particular results or checkpoints are intentionally part of the repository.
-
----
-
-# 34. Project Results
-
-The final dissertation experiments investigated DreamerV3 training for Panda trajectory planning up to approximately **128,000 training steps**.
-
-The analysis identified that poor task performance was strongly associated with planning/trajectory-generation behaviour, while other contributing factors were also investigated.
-
-The final analysis reported an approximate diagnostic breakdown of:
-
-```text
-Planning-related error     ≈ 83%
-Other factors              ≈ 17%
-```
-
-These values are experimental findings from this project and should not be interpreted as general properties of DreamerV3.
-
----
-
-# 35. Limitations
+# 31. Limitations
 
 The repository represents a research implementation developed for an MSc dissertation.
 
@@ -1132,7 +952,7 @@ Important limitations include:
 
 ---
 
-# 36. Future Work
+# 32. Future Work
 
 Possible extensions include:
 
@@ -1152,7 +972,7 @@ Possible extensions include:
 
 ---
 
-# 37. Citation
+# 33. Citation
 
 If you use the DreamerV3 methodology, please cite the original work:
 
@@ -1179,7 +999,7 @@ For the dissertation implementation, please also cite this repository:
 
 ---
 
-# 38. Acknowledgements
+# 34. Acknowledgements
 
 This project builds upon the DreamerV3 world-model reinforcement-learning framework and the open-source robotics simulation ecosystem provided by Robosuite and MuJoCo.
 
@@ -1187,7 +1007,7 @@ The official DreamerV3 implementation and documentation should be consulted for 
 
 ---
 
-# 39. Quick Start
+# 35. Quick Start
 
 For convenience, the complete basic workflow is:
 
